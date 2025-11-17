@@ -34,9 +34,15 @@ Modul ini memungkinkan pengguna untuk membuat post dalam bentuk teks dan/atau ga
 Modul ini berguna untuk menginformasikan acara terkait olahraga yoga dan/atau pilates yang tersedia untuk diikuti. Modul akan menampilkan suatu timeline berisi acara-acara yang akan datang beserta tanggal dan lokasinya. Informasi yang akan ditampilkan untuk setiap acara adalah nama acara, deskripsi singkat, dan poster dari acara tersebut. Setiap event akan mempunyai gambar poster dan mekanisme pendaftarannya masing-masing, misalnya dengan mengisi link Google Forms atau registrasi secara offline. Informasi mengenai acara-acara ini kami dapatkan dari sosial media atau komunitas yang ada.
 
 ## Peran atau aktor pengguna aplikasi
+### Role admin 
+
+### Role guest user
+
+### Role logged in user
 
 
 ## Penjelasan alur pengintegrasian data di aplikasi dengan aplikasi web (PWS) yang sudah dibuat saat Proyek Tengah Semester berbasis web service.
-
+WIP
 
 ## Link Design Figma
+https://www.figma.com/design/ql7AIQTcw69ICUzbf60xvR/souline?node-id=0-1&t=mGIfyTrPUYCfaMXp-1
