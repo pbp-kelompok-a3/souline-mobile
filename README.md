@@ -35,11 +35,11 @@ Modul ini berguna untuk menginformasikan acara terkait olahraga yoga dan/atau pi
 
 ## Peran atau aktor pengguna aplikasi
 ### Role admin 
-
+Admin dapat melakukan Create (membuat/menambahkan), Update (mengubah) dan Delete (menghapus) di setiap modul yang mengimplementasikan CRUD. Kedua fungsi tersebut ekslusif untuk Admin di modul Studio, Sportswear, Resources, dan Events.
 ### Role guest user
-
+Guest user atau user yang tidak logged in dapat melakukan Read (membaca/mengakses) seluruh konten di aplikasi ini. Namun, guest tidak dapat melakukan Create (membuat) post di modul timeline. Studio akan ditampilkan dalam urutan acak di halaman utama dan sesuai urutan kota di halaman khusus Studio.
 ### Role logged in user
-
+User yang sudah logged in dapat melihat kotanya sendiri sebagai preferensi di paling atas di halaman utama dan di halaman Studio. User juga dapat melakukan Create (membuat) post di modul timeline dan berinteraksi dengan post yang sudah ada, seperti memberikan komentar dan like.
 
 ## Penjelasan alur pengintegrasian data di aplikasi dengan aplikasi web (PWS) yang sudah dibuat saat Proyek Tengah Semester berbasis web service.
 WIP
