@@ -46,3 +46,6 @@ WIP
 
 ## Link Design Figma
 https://www.figma.com/design/ql7AIQTcw69ICUzbf60xvR/souline?node-id=0-1&t=mGIfyTrPUYCfaMXp-1
+
+## Link PAS Planning
+https://docs.google.com/spreadsheets/d/1HsCUbcmsiHyXkC_SnawPLOpkn7jrXB5-rZWQB76XWkc/edit?usp=sharing
