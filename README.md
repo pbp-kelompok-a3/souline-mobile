@@ -42,10 +42,11 @@ Guest user atau user yang tidak logged in dapat melakukan Read (membaca/mengakse
 User yang sudah logged in dapat melihat kotanya sendiri sebagai preferensi di paling atas di halaman utama dan di halaman Studio. User juga dapat melakukan Create (membuat) post di modul timeline dan berinteraksi dengan post yang sudah ada, seperti memberikan komentar dan like.
 
 ## Penjelasan alur pengintegrasian data di aplikasi dengan aplikasi web (PWS) yang sudah dibuat saat Proyek Tengah Semester berbasis web service.
-WIP
+Integrasi antara aplikasi mobile dan web service dapat dilakukan dengan mengambil data berformat JSON (JavaScript Object Notation) dari web service melalui URL hasil deployment Proyek Tengah Semester. Proses pengambilan data ini dilakukan di aplikasi mobile menggunakan `Uri.parse` pada file Dart, kemudian diakses melalui metode `get` dengan tipe konten `application/json`. Data yang diperoleh selanjutnya diolah menggunakan `jsonDecode()` untuk dikonversi ke dalam model yang telah dibuat, lalu ditampilkan secara asinkron dengan bantuan widget `FutureBuilder`. Data JSON tersebut juga dapat dimanfaatkan untuk melakukan operasi CRUD pada aplikasi mobile dan web secara asinkron.
+
 
 ## Link Design Figma
-https://www.figma.com/design/ql7AIQTcw69ICUzbf60xvR/souline?node-id=0-1&t=mGIfyTrPUYCfaMXp-1
+https://www.figma.com/design/ql7AIQTcw69ICUzbf60xvR/souline?node-id=169-1312&t=mbpNs6m2q4jU3lTn-1
 
 ## Link PAS Planning
 https://docs.google.com/spreadsheets/d/1HsCUbcmsiHyXkC_SnawPLOpkn7jrXB5-rZWQB76XWkc/edit?usp=sharing
