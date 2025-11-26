@@ -14,7 +14,7 @@ class EventsPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event, size: 80, color: Colors.purple),
+            Icon(Icons.event, size: 80, color: Colors.orange),
             SizedBox(height: 16),
             Text(
               'Events Module',
