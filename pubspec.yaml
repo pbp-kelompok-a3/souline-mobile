@@ -34,6 +34,12 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  
+  # URL launcher for opening external links (Google Maps, phone calls, etc.)
+  url_launcher: ^6.2.5
+  provider: ^6.1.5+1
+  pbp_django_auth: ^0.4.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
