@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
+import 'modules/timeline/timeline_page.dart';
+import 'modules/timeline/create_post.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 
@@ -24,8 +26,14 @@ class SoulineApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFFF7DD)),
           useMaterial3: true,
+          fontFamily: 'Poppins',
         ),
       ),
+      routes: {
+        '/timeline': (context) => TimelinePage(),
+        '/create_post': (context) => CreatePostPage(),
+        // '/profile': (context) => ProfilePage(),
+      },
     );
   }
 }
