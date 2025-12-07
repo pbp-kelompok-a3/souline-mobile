@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
-import '../../shared/widgets/studio_card.dart';
+import '../../shared/widgets/app_header.dart';
+import '../../shared/widgets/navigation_bar.dart';
+import 'widgets/studio_card.dart';
 import 'studio_form_page.dart';
 
 class StudioPage extends StatefulWidget {
@@ -17,6 +19,7 @@ class _StudioPageState extends State<StudioPage> {
   // Selected city filter (null means show user's city)
   UserKota? _selectedCity;
   String _searchQuery = '';
+  bool _isFilterVisible = false;
 
   // TODO: Replace with actual data from API
   // Mock data for UI development
@@ -134,6 +137,13 @@ class _StudioPageState extends State<StudioPage> {
       _selectedCity = city;
       _searchQuery = ''; // Clear search when changing city filter
       _searchController.clear();
+      _isFilterVisible = false;
+    });
+  }
+
+  void _toggleFilter() {
+    setState(() {
+      _isFilterVisible = !_isFilterVisible;
     });
   }
 
@@ -157,183 +167,156 @@ class _StudioPageState extends State<StudioPage> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        title: const Text(
-          'Studio',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.darkBlue,
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
-      ),
-      body: Column(
+      body: Stack(
         children: [
-          // Sticky search bar and filter
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.darkBlue,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Search bar
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: _onSearchChanged,
-                      decoration: InputDecoration(
-                        hintText: 'Search studios...',
-                        hintStyle: TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColors.darkBlue,
+          Column(
+            children: [
+              AppHeader(
+                title: 'Studio',
+                onSearchChanged: _onSearchChanged,
+                onFilterPressed: _toggleFilter,
+              ),
+              const SizedBox(height: 30), // Space for search bar overflow
+              Expanded(
+                child: _filteredStudios.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isSearching
+                                  ? Icons.search_off
+                                  : Icons.fitness_center,
+                              size: 64,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              isSearching
+                                  ? 'No studios found for "$_searchQuery"'
+                                  : 'No studios in ${userKotaValues.reverse[currentCity]}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
                         ),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.clear,
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(
+                          top: 8,
+                          bottom: 100,
+                        ), // Bottom padding for navbar
+                        itemCount:
+                            _filteredStudios.length + (isSearching ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          // Show search results header when searching
+                          if (isSearching && index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              child: Text(
+                                'Found ${_filteredStudios.length} studio${_filteredStudios.length != 1 ? 's' : ''} for "$_searchQuery"',
+                                style: const TextStyle(
+                                  fontSize: 14,
                                   color: AppColors.textMuted,
+                                  fontStyle: FontStyle.italic,
                                 ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _onSearchChanged('');
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                              ),
+                            );
+                          }
+
+                          final studioIndex = isSearching ? index - 1 : index;
+                          return StudioCard(
+                            studio: _filteredStudios[studioIndex],
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+          if (_isFilterVisible)
+            Positioned(
+              top: 190,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cream,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Location',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkBlue,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                
-                // City filter dropdown
-                Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.teal,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<UserKota>(
-                      value: currentCity,
-                      icon: const Icon(
-                        Icons.arrow_drop_down,
-                        color: Colors.white,
-                      ),
-                      dropdownColor: AppColors.teal,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      onChanged: (UserKota? newValue) {
-                        if (newValue != null) {
-                          _onCityFilterChanged(newValue);
-                        }
-                      },
-                      items: UserKota.values.map((UserKota city) {
-                        final cityName = userKotaValues.reverse[city] ?? '';
-                        final isUserCity = city == _userCity;
-                        return DropdownMenuItem<UserKota>(
-                          value: city,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(cityName),
-                              if (isUserCity) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.home,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ],
-                            ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: UserKota.values.map((city) {
+                        final isSelected = city == (_selectedCity ?? _userCity);
+                        return GestureDetector(
+                          onTap: () => _onCityFilterChanged(city),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.darkBlue
+                                  : const Color(0xFF7EB3DE),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              userKotaValues.reverse[city] ?? '',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         );
                       }).toList(),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          // Studios list
-          Expanded(
-            child: _filteredStudios.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          isSearching ? Icons.search_off : Icons.fitness_center,
-                          size: 64,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          isSearching
-                              ? 'No studios found for "$_searchQuery"'
-                              : 'No studios in ${userKotaValues.reverse[currentCity]}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(top: 8, bottom: 80),
-                    itemCount: _filteredStudios.length + (isSearching ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      // Show search results header when searching
-                      if (isSearching && index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            'Found ${_filteredStudios.length} studio${_filteredStudios.length != 1 ? 's' : ''} for "$_searchQuery"',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textMuted,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final studioIndex = isSearching ? index - 1 : index;
-                      return StudioCard(studio: _filteredStudios[studioIndex]);
-                    },
-                  ),
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: FloatingNavigationBar(currentIndex: 1),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreateStudio,
-        backgroundColor: AppColors.orange,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80), // Adjust for navbar
+        child: FloatingActionButton(
+          onPressed: _navigateToCreateStudio,
+          backgroundColor: AppColors.orange,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
     );
   }

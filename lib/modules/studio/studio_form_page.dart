@@ -188,7 +188,7 @@ class _StudioFormPageState extends State<StudioFormPage> {
                   border: Border.all(color: AppColors.teal.withOpacity(0.3)),
                 ),
                 child: DropdownButtonFormField<UserKota>(
-                  value: _selectedKota,
+                  initialValue: _selectedKota,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(
                       Icons.location_city,
