@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:souline_mobile/shared/widgets/AppHeader.dart';
+import 'package:souline_mobile/shared/widgets/app_header.dart';
 
 class ResourcesPage extends StatelessWidget {
   const ResourcesPage({super.key});

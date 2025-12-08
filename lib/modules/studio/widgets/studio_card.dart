@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../core/constants/app_constants.dart';
-import '../models/studio_entry.dart';
-import '../../modules/studio/studio_detail_page.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/shared/models/studio_entry.dart';
+import '../studio_detail_page.dart';
 
 class StudioCard extends StatefulWidget {
   final Studio studio;
@@ -66,12 +66,12 @@ class _StudioCardState extends State<StudioCard> {
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
                     studio.thumbnail,
-                    width: 150,
+                    width: 140,
                     height: 200,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        width: 150,
+                        width: 140,
                         height: 200,
                         decoration: BoxDecoration(
                           color: AppColors.teal.withOpacity(0.3),
