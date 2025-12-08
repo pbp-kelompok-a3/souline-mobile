@@ -54,7 +54,10 @@ class _StudioPageState extends State<StudioPage> {
         final query = _searchQuery.toLowerCase();
         return studio.namaStudio.toLowerCase().contains(query) ||
             studio.area.toLowerCase().contains(query) ||
-            (userKotaValues.reverse[studio.kota]?.toLowerCase().contains(query) ?? false);
+            (userKotaValues.reverse[studio.kota]?.toLowerCase().contains(
+                  query,
+                ) ??
+                false);
       }).toList();
     }
 
@@ -373,6 +376,7 @@ class _StudioPageState extends State<StudioPage> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80), // Adjust for navbar
         child: FloatingActionButton(
+          heroTag: 'studio-fab',
           onPressed: _navigateToCreateStudio,
           backgroundColor: AppColors.orange,
           child: const Icon(Icons.add, color: Colors.white),

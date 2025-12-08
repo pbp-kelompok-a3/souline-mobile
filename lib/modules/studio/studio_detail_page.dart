@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
+import '../../shared/widgets/navigation_bar.dart';
 import 'studio_form_page.dart';
 import 'studio_service.dart';
 
-class StudioDetailPage extends StatelessWidget {
+class StudioDetailPage extends StatefulWidget {
   final Studio studio;
   final bool isAdmin;
   final Future<void> Function()? onRefresh;
@@ -19,15 +20,28 @@ class StudioDetailPage extends StatelessWidget {
     this.onRefresh,
   });
 
+  @override
+  State<StudioDetailPage> createState() => _StudioDetailPageState();
+}
+
+class _StudioDetailPageState extends State<StudioDetailPage> {
+  late Studio _studio;
+
+  @override
+  void initState() {
+    super.initState();
+    _studio = widget.studio;
+  }
+
   Future<void> _openGoogleMaps() async {
-    final Uri url = Uri.parse(studio.gmapsLink);
+    final Uri url = Uri.parse(_studio.gmapsLink);
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
   Future<void> _callStudio() async {
-    final Uri url = Uri.parse('tel:${studio.nomorTelepon}');
+    final Uri url = Uri.parse('tel:${_studio.nomorTelepon}');
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     }
@@ -36,9 +50,20 @@ class StudioDetailPage extends StatelessWidget {
   void _navigateToEdit(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => StudioFormPage(studio: studio)),
+      MaterialPageRoute(builder: (context) => StudioFormPage(studio: _studio)),
     ).then((value) {
-      if (value == true && onRefresh != null) onRefresh!();
+      if (value is Studio) {
+        setState(() => _studio = value);
+        if (widget.onRefresh != null) widget.onRefresh!();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Studio updated'),
+            backgroundColor: AppColors.darkBlue,
+          ),
+        );
+        return;
+      }
+      if (value == true && widget.onRefresh != null) widget.onRefresh!();
     });
   }
 
@@ -49,7 +74,7 @@ class StudioDetailPage extends StatelessWidget {
         return AlertDialog(
           title: const Text('Delete Studio'),
           content: Text(
-            'Are you sure you want to delete "${studio.namaStudio}"?',
+            'Are you sure you want to delete "${_studio.namaStudio}"?',
           ),
           actions: [
             TextButton(
@@ -74,14 +99,14 @@ class StudioDetailPage extends StatelessWidget {
     try {
       final request = context.read<CookieRequest>();
       final service = StudioService(request);
-      await service.deleteStudio(studio.id);
+      await service.deleteStudio(_studio.id);
 
-      if (onRefresh != null) await onRefresh!();
+      if (widget.onRefresh != null) await widget.onRefresh!();
 
       Navigator.of(context).pop();
       scaffold.showSnackBar(
         SnackBar(
-          content: Text('${studio.namaStudio} deleted'),
+          content: Text('${_studio.namaStudio} deleted successfully.'),
           backgroundColor: AppColors.darkBlue,
         ),
       );
@@ -99,150 +124,165 @@ class StudioDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.cream,
-      body: CustomScrollView(
-        slivers: [
-          // App bar with studio image
-          SliverAppBar(
-            expandedHeight: 250,
-            pinned: true,
-            backgroundColor: AppColors.darkBlue,
-            iconTheme: const IconThemeData(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                studio.namaStudio,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // App bar with studio image
+              SliverAppBar(
+                expandedHeight: 250,
+                pinned: true,
+                backgroundColor: AppColors.darkBlue,
+                iconTheme: const IconThemeData(color: Colors.white),
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    _studio.namaStudio,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        proxiedImageUrl(_studio.thumbnail),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: AppColors.teal.withOpacity(0.3),
+                            child: const Icon(
+                              Icons.fitness_center,
+                              size: 80,
+                              color: AppColors.darkBlue,
+                            ),
+                          );
+                        },
+                      ),
+
+                      // Gradient overlay for better text visibility
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: widget.isAdmin
+                    ? [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.white),
+                          onPressed: () => _navigateToEdit(context),
+                          tooltip: 'Edit Studio',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.white),
+                          onPressed: () => _showDeleteConfirmation(context),
+                          tooltip: 'Delete Studio',
+                        ),
+                      ]
+                    : null,
+              ),
+
+              // Studio details
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Rating section
+                      _buildRatingCard(),
+                      const SizedBox(height: 16),
+
+                      // Location section
+                      _buildSectionCard(
+                        icon: Icons.location_on,
+                        title: 'Location',
+                        children: [
+                          _buildInfoRow(
+                            'City',
+                            userKotaValues.reverse[_studio.kota] ?? '',
+                          ),
+                          _buildInfoRow('Area', _studio.area),
+                          _buildInfoRow('Address', _studio.alamat),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Contact section
+                      _buildSectionCard(
+                        icon: Icons.contact_phone,
+                        title: 'Contact',
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildInfoRow('Phone', _studio.nomorTelepon),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.phone,
+                                  color: AppColors.teal,
+                                ),
+                                onPressed: _callStudio,
+                                tooltip: 'Call Studio',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Google Maps button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: _openGoogleMaps,
+                          icon: const Icon(Icons.map),
+                          label: const Text('Open in Google Maps'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.teal,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Events section (placeholder)
+                      _buildEventsSection(),
+                    ],
+                  ),
                 ),
               ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    proxiedImageUrl(studio.thumbnail),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppColors.teal.withOpacity(0.3),
-                        child: const Icon(
-                          Icons.fitness_center,
-                          size: 80,
-                          color: AppColors.darkBlue,
-                        ),
-                      );
-                    },
-                  ),
 
-                  // Gradient overlay for better text visibility
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 85), // Spacer for navbar
               ),
-            ),
-            actions: isAdmin
-                ? [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white),
-                      onPressed: () => _navigateToEdit(context),
-                      tooltip: 'Edit Studio',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.white),
-                      onPressed: () => _showDeleteConfirmation(context),
-                      tooltip: 'Delete Studio',
-                    ),
-                  ]
-                : null,
+            ],
           ),
 
-          // Studio details
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Rating section
-                  _buildRatingCard(),
-                  const SizedBox(height: 16),
-
-                  // Location section
-                  _buildSectionCard(
-                    icon: Icons.location_on,
-                    title: 'Location',
-                    children: [
-                      _buildInfoRow(
-                        'City',
-                        userKotaValues.reverse[studio.kota] ?? '',
-                      ),
-                      _buildInfoRow('Area', studio.area),
-                      _buildInfoRow('Address', studio.alamat),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Contact section
-                  _buildSectionCard(
-                    icon: Icons.contact_phone,
-                    title: 'Contact',
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildInfoRow('Phone', studio.nomorTelepon),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.phone,
-                              color: AppColors.teal,
-                            ),
-                            onPressed: _callStudio,
-                            tooltip: 'Call Studio',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Google Maps button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _openGoogleMaps,
-                      icon: const Icon(Icons.map),
-                      label: const Text('Open in Google Maps'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.teal,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Events section (placeholder)
-                  _buildEventsSection(),
-                ],
-              ),
-            ),
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: FloatingNavigationBar(currentIndex: 1),
           ),
         ],
-      ),
+      )
     );
   }
 
@@ -304,7 +344,7 @@ class StudioDetailPage extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      studio.rating.toStringAsFixed(1),
+                      _studio.rating.toStringAsFixed(1),
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -330,7 +370,7 @@ class StudioDetailPage extends StatelessWidget {
               children: List.generate(5, (index) {
                 final starValue = index + 1;
                 // Round rating to nearest 0.5 for star display
-                final roundedRating = (studio.rating * 2).round() / 2;
+                final roundedRating = (_studio.rating * 2).round() / 2;
                 if (roundedRating >= starValue) {
                   return const Icon(
                     Icons.star,
@@ -391,7 +431,7 @@ class StudioDetailPage extends StatelessWidget {
             const Icon(Icons.event, color: AppColors.darkBlue, size: 24),
             const SizedBox(width: 8),
             Text(
-              'Events in ${studio.namaStudio}',
+              'Events in ${_studio.namaStudio}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

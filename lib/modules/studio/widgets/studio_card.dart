@@ -42,6 +42,7 @@ class _StudioCardState extends State<StudioCard> {
             if (widget.onDeleted != null) {
               await widget.onDeleted!();
             }
+            if (!mounted) return;
             setState(() {});
           },
         ),

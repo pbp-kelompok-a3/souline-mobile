@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
@@ -43,7 +44,7 @@ class StudioService {
       'rating': rating,
     };
 
-    final res = await request.postJson(_url('studio/create-flutter/'), payload);
+    final res = await request.postJson(_url('studio/create-flutter/'), jsonEncode(payload));
     _assertSuccess(res);
   }
 
@@ -69,15 +70,12 @@ class StudioService {
       'rating': rating,
     };
 
-    final res = await request.postJson(
-      _url('studio/edit-flutter/$id/'),
-      payload,
-    );
+    final res = await request.postJson(_url('studio/edit-flutter/$id/'), jsonEncode(payload));
     _assertSuccess(res);
   }
 
   Future<void> deleteStudio(String id) async {
-    final res = await request.postJson(_url('studio/delete-flutter/$id/'), {});
+    final res = await request.post(_url('studio/delete-flutter/$id/'), null);
     _assertSuccess(res);
   }
 
