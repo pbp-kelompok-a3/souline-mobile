@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
 import 'studio_form_page.dart';
+import 'studio_service.dart';
 
 class StudioDetailPage extends StatelessWidget {
   final Studio studio;
+  final bool isAdmin;
+  final Future<void> Function()? onRefresh;
 
-  const StudioDetailPage({super.key, required this.studio});
-
-  // TODO: Implement isAdmin check properly
-  bool get _isAdmin => true;
+  const StudioDetailPage({
+    super.key,
+    required this.studio,
+    required this.isAdmin,
+    this.onRefresh,
+  });
 
   Future<void> _openGoogleMaps() async {
     final Uri url = Uri.parse(studio.gmapsLink);
@@ -30,7 +37,9 @@ class StudioDetailPage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => StudioFormPage(studio: studio)),
-    );
+    ).then((value) {
+      if (value == true && onRefresh != null) onRefresh!();
+    });
   }
 
   void _showDeleteConfirmation(BuildContext context) {
@@ -48,17 +57,7 @@ class StudioDetailPage extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                // TODO: Implement delete API call
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to list
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${studio.namaStudio} deleted'),
-                    backgroundColor: AppColors.darkBlue,
-                  ),
-                );
-              },
+              onPressed: () => _deleteStudio(context),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Delete'),
             ),
@@ -66,6 +65,34 @@ class StudioDetailPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _deleteStudio(BuildContext context) async {
+    Navigator.of(context).pop();
+
+    final scaffold = ScaffoldMessenger.of(context);
+    try {
+      final request = context.read<CookieRequest>();
+      final service = StudioService(request);
+      await service.deleteStudio(studio.id);
+
+      if (onRefresh != null) await onRefresh!();
+
+      Navigator.of(context).pop();
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('${studio.namaStudio} deleted'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+    } catch (e) {
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -93,7 +120,7 @@ class StudioDetailPage extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    studio.thumbnail,
+                    proxiedImageUrl(studio.thumbnail),
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
@@ -123,7 +150,7 @@ class StudioDetailPage extends StatelessWidget {
                 ],
               ),
             ),
-            actions: _isAdmin
+            actions: isAdmin
                 ? [
                     IconButton(
                       icon: const Icon(Icons.edit, color: Colors.white),
