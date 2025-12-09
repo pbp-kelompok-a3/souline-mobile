@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'sportswear_detail_page.dart';
 import 'sportswear_brand_form_page.dart';
 import 'sportswear_model.dart';
-import 'package:souline_mobile/shared/widgets/AppHeader.dart';
+import 'package:souline_mobile/shared/widgets/app_header.dart';
 
 const Color primaryBrandColor = Color(0xFF5E8096);
 const Color accentColor = Color(0xFF90B4C8);
