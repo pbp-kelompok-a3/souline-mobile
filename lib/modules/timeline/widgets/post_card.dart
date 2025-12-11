@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class PostCard extends StatefulWidget {
-  final Post post;
+  final Result post;
   final VoidCallback? onTap; // for navigating to PostDetail
   final bool? detail;
 
@@ -15,6 +16,8 @@ class PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<PostCard> {
+  bool _isBookmarked = false;
+
   void _toggleLike() {
     setState(() {
       if (widget.post.likedByUser) {
@@ -29,8 +32,28 @@ class _PostCardState extends State<PostCard> {
 
   void _toggleBookmark() {
     setState(() {
-      widget.post.bookmarkedByUser = !widget.post.bookmarkedByUser;
+      _isBookmarked = !_isBookmarked;
     });
+  }
+
+  String timeAgo(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inSeconds < 10) {
+      return "Just now";
+    } else if (diff.inMinutes < 1) {
+      return "${diff.inSeconds}s";
+    } else if (diff.inMinutes < 60) {
+      return "${diff.inMinutes}m";
+    } else if (diff.inHours < 24) {
+      return "${diff.inHours}h";
+    } else if (diff.inDays < 7) {
+      return "${diff.inDays}d";
+    } else {
+      // fallback to formatted date
+      return DateFormat("d MMM yyyy").format(date);
+    }
   }
 
   @override
@@ -41,7 +64,7 @@ class _PostCardState extends State<PostCard> {
   return GestureDetector(
     onTap: widget.onTap,
     child: Container(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -51,9 +74,9 @@ class _PostCardState extends State<PostCard> {
 
               CircleAvatar(
                 backgroundImage: NetworkImage(
-                  'https://ui-avatars.com/api/?name=${post.username}&background=random',
+                  'https://ui-avatars.com/api/?name=${post.authorUsername}&background=random',
                 ),
-                radius: detail == true ? 16 : 20,
+                radius: 20,
               ),
 
               SizedBox(width: detail == true ? 16 : 12),
@@ -62,13 +85,26 @@ class _PostCardState extends State<PostCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      post.username,
-                      style: TextStyle(
-                        color: AppColors.textDark,
-                        fontWeight: FontWeight.bold,
-                        fontSize: detail == true ? 18 : 14,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          post.authorUsername,
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: detail == true ? 18 : 14,
+                            ),
                         ),
+                        if (detail == false)
+                          Text(
+                            timeAgo(post.created_at),
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                              ),
+                          ),
+                      ]
                     ),
 
                     SizedBox(height: 8),
@@ -94,7 +130,17 @@ class _PostCardState extends State<PostCard> {
                         ),
                       ),
 
-                    SizedBox(height: detail == true ? 20 : 10),
+                    SizedBox(height: detail == true ? 12 : 0,),
+
+                    if (detail == true)
+                      Text(
+                        DateFormat("h:mm a - d MMM yy").format(post.created_at),
+                        style: TextStyle(
+                          color: AppColors.textMuted
+                        ),
+                      ),
+
+                    SizedBox(height: detail == true ? 8 : 0),
 
                     Row(
                       children: [
@@ -102,33 +148,37 @@ class _PostCardState extends State<PostCard> {
                           icon: Icon(
                             Icons.comment_outlined,
                             color: AppColors.textMuted,
-                            size: detail == true ? 28 : 20,
+                            size: detail == true ? 24 : 20,
                           ),
-                          padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => CommentFormPage(),
+                                builder: (context) => CommentFormPage(post: post),
                               ),
                             );
                           },
                         ),
+                        Text(
+                          "${post.commentCount}",
+                          style: TextStyle(
+                            fontSize: detail == true ? 16 : 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
 
-                        const Spacer(),
+                        Spacer(),
 
                         IconButton(
                           icon: Icon(
                             post.likedByUser ? Icons.favorite : Icons.favorite_border,
                             color: post.likedByUser ? Colors.red : AppColors.textMuted,
-                            size: detail == true ? 28 : 20,
+                            size: detail == true ? 24 : 20,
                           ),
-                          padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: _toggleLike,
                         ),
-                        SizedBox(width: detail == true ? 8 : 4),
                         Text(
                           "${post.likeCount}",
                           style: TextStyle(
@@ -137,16 +187,14 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
 
-                        SizedBox(width: 30),
+                        SizedBox(width: detail == true ? 30 : 20),
 
                         IconButton(
                           icon: Icon(
-                            post.bookmarkedByUser ? Icons.bookmark : Icons.bookmark_border,
-                            color: post.bookmarkedByUser ? AppColors.primary : AppColors.textMuted,
-                            size: detail == true ? 28 : 20,
+                            _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                            color: _isBookmarked ? AppColors.primary : AppColors.textMuted,
+                            size: detail == true ? 24 : 20,
                           ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
                           onPressed: _toggleBookmark,
                         ),
                       ],
@@ -157,10 +205,10 @@ class _PostCardState extends State<PostCard> {
             ],
           ),
 
-          const SizedBox(height: 12),
           Divider(
             color: detail == true ? AppColors.textDark : AppColors.textMuted,
             thickness: detail == true ? 1 : 0.5,
+            height: detail == true ? 24 : 10,
           ),
         ],
       ),

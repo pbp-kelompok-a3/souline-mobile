@@ -1,98 +1,161 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class CommentFormPage extends StatefulWidget {
-  const CommentFormPage({super.key});
+  final Result post;
+  final Comment? comment;
 
-  @override
-  State<CommentFormPage> createState() => CommentFormPageState();
+  const CommentFormPage({super.key, required this.post, this.comment});
+
+@override
+  State<CommentFormPage> createState() => _CommentFormPageState();
 }
 
-class CommentFormPageState extends State<CommentFormPage> {
+class _CommentFormPageState extends State<CommentFormPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  late TextEditingController _contentController;
+
+  bool get _isEditing => widget.comment != null;
 
   @override
-    Widget build(BuildContext context) {
-      return Scaffold(
-        backgroundColor: const Color(0xfff9f4e8),
-        body: Column(
-          children: [
-            _header(context),
-            SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        hintText: 'Write a reply',
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.grey,
-                            width: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Icon(
-                      Icons.image,
-                      size: 100,
-                      color: Colors.grey[300],
-                    )
-                  ],
+  void initState() {
+    super.initState();
+
+    // Initialize controllers with existing values if editing
+    _contentController = TextEditingController(
+      text: widget.comment?.content ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      // For now, just show success and go back
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEditing ? 'Comment updated!' : 'Comment posted!'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+    }
+  }
+
+  // Future<void> _submitForm(Comment comment) async {
+  //   final response = await http.get(Uri.parse('http://localhost:8000/timeline/api/add_comment/'));
+
+  //   if (_formKey.currentState!.validate()) {
+  //     if (response.statusCode == 200) {
+  //       Navigator.pop(context);
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(_isEditing ? 'Comment updated!' : 'Comment added!'),
+  //           backgroundColor: AppColors.darkBlue,
+  //         ),
+  //       ); 
+  //     } else {
+  //       throw Exception('Failed to comment');
+  //     }
+  //   }
+  // }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.textLight,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ), 
+        foregroundColor: AppColors.textLight,
+        backgroundColor: AppColors.darkBlue,
+        actions: [
+          Container(
+            margin: EdgeInsets.fromLTRB(0, 10, 12, 8),
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: AppColors.orange,
+              borderRadius: BorderRadius.circular(20)
+            ),
+            child: TextButton(
+            onPressed: () {
+              _submitForm();
+            },    
+            child: Text(
+              'Reply',
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontSize: 14,
+                fontWeight: FontWeight.bold
                 ),
               ),
             ),
+          )
         ],
       ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 10),
+            Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Text(
+                'Replying to ${widget.post.authorUsername}',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            SizedBox(height: 12),
+            TextFormField(
+              maxLength: 150,
+              maxLines: 5,
+              controller: _contentController,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter some text';
+                }
+                return null;
+              },
+              decoration: InputDecoration(
+                hintText: 'Write a reply...',
+                hintStyle: TextStyle(color: AppColors.textMuted),
+                prefixIcon: Container(
+                  padding: EdgeInsets.fromLTRB(12, 0, 16, 72),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      'https://ui-avatars.com/api/?name=${widget.post?.authorUsername}&background=random',
+                    ),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+              ),
+            ),
+          ]
+        )
+      )
     );
   }
 }
-
-Widget _header(BuildContext context) {
-    return Container(
-          height: 160,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF7EB3DE), Color(0xFF446178)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context); // ⬅️ aksi kembali
-                },
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Add Comment',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: Icon(Icons.send_rounded),
-                color: Colors.white,
-                iconSize: 24,
-                onPressed: () => {  
-                  // Aksi untuk mengirim post
-                },
-              )
-            ],
-          ),
-        );
-  }
