@@ -235,7 +235,7 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
           ...reviews.map((review) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _buildReviewItem(review),
-          )).toList(),
+          )),
       ],
     );
   }

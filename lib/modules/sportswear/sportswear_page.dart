@@ -31,7 +31,7 @@ class SportswearService {
     }
 
     if (params.isNotEmpty) {
-      url += '?' + Uri(queryParameters: params).query;
+      url += '?${Uri(queryParameters: params).query}';
     }
 
     final response = await http.get(Uri.parse(url));
@@ -83,7 +83,7 @@ class SportswearService {
       throw Exception('Validation Failed: ${errorBody['errors'] ?? 'Invalid data submitted'}');
     } else {
       final errorBody = jsonDecode(response.body);
-      throw Exception('Failed to update brand. Status: ${response.statusCode}, Body: ${errorBody}');
+      throw Exception('Failed to update brand. Status: ${response.statusCode}, Body: $errorBody');
     }
   }
 }
@@ -336,7 +336,7 @@ class __ProductCardState extends State<_ProductCard> {
                         ...reviews.map((review) => Padding(
                           padding: const EdgeInsets.only(top: 10.0),
                           child: _buildReviewItem(context, review: review),
-                        )).toList(),
+                        )),
                   ],
                 ),
               ),
