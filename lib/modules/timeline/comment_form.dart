@@ -138,7 +138,7 @@ class _CommentFormPageState extends State<CommentFormPage> {
                   padding: EdgeInsets.fromLTRB(12, 0, 16, 72),
                   child: CircleAvatar(
                     backgroundImage: NetworkImage(
-                      'https://ui-avatars.com/api/?name=${widget.post?.authorUsername}&background=random',
+                      'https://ui-avatars.com/api/?name=${widget.post.authorUsername}&background=random',
                     ),
                   ),
                 ),

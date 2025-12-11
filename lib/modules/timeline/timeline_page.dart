@@ -20,7 +20,7 @@ class TimelinePage extends StatefulWidget {
 class TimelinePageState extends State<TimelinePage> {
   final TextEditingController _searchController = TextEditingController();
   // List<Result> _posts = [];
-  bool _loading = true;
+  final bool _loading = true;
 
   String _sortBy = 'latest';
   String _searchQuery = '';
