@@ -1,3 +1,5 @@
+import 'package:souline_mobile/shared/models/comment_entry.dart';
+
 class Post {
   final int id;
   final String username;
@@ -8,7 +10,8 @@ class Post {
   int likeCount;
   bool likedByUser;
   final int commentCount;
-
+  bool bookmarkedByUser = false;
+  List<Comment> comments;
 
   Post({
     required this.id,
@@ -20,6 +23,7 @@ class Post {
     required this.likeCount,
     required this.likedByUser,
     required this.commentCount,
+    this.comments = const [],
   });
 
 

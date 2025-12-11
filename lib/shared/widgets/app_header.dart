@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 
 class AppHeader extends StatelessWidget {
   final String title;
@@ -65,14 +66,19 @@ class AppHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: const Color(0xFF62C4D9)),
+              border: Border.all(color: AppColors.teal),
             ),
             child: TextField(
               onChanged: onSearchChanged, // <--- pake callback
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                prefixIcon: Padding(
+                  padding: EdgeInsets.only(left: 16, right: 8),
+                  child: Icon(Icons.search, size: 20, color: AppColors.textMuted),
+                ),
                 hintText: "Search...",
+                hintStyle: TextStyle(color: AppColors.textMuted),
                 border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 15),
               ),
             ),
           ),
@@ -88,7 +94,7 @@ class AppHeader extends StatelessWidget {
               height: 48,
               width: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFF62C4D9),
+                color: AppColors.secondary,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Icon(Icons.tune, color: Colors.white),
