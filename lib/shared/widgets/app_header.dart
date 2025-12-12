@@ -66,7 +66,7 @@ class AppHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: AppColors.teal),
+              border: Border.all(color: AppColors.lightBlue),
             ),
             child: TextField(
               onChanged: onSearchChanged, // <--- pake callback
@@ -94,7 +94,7 @@ class AppHeader extends StatelessWidget {
               height: 48,
               width: 48,
               decoration: BoxDecoration(
-                color: AppColors.secondary,
+                color: AppColors.lightBlue,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Icon(Icons.tune, color: Colors.white),

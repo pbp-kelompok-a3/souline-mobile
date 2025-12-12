@@ -6,22 +6,35 @@ import 'package:souline_mobile/shared/models/post_entry.dart';
 import 'package:souline_mobile/modules/timeline/widgets/post_card.dart';
 
 class PostDetailPage extends StatelessWidget {
-  final Post post;
+  final Result post;
 
   const PostDetailPage({super.key, required this.post});
 
   void _navigateToEdit(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => PostFormPage()),
+      MaterialPageRoute(builder: (context) => PostFormPage(post: post)),
     );
   }
+
+  // Future<void> deletePost(int id) async {
+  //   final url = Uri.parse('http://localhost:8000/timeline/api/delete_post/$id/');
+
+  //   final response = await http.delete(url);
+
+  //   if (response.statusCode == 200) {
+  //     print("Deleted successfully");
+  //   } else {
+  //     print("Delete failed: ${response.body}");
+  //   }
+  // }
 
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: AppColors.cream,
           title: const Text('Delete Post'),
           content: Text(
             'Are you sure you want to delete post?',
@@ -33,7 +46,7 @@ class PostDetailPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                // TODO: Implement delete API call
+                // deletePost(post.id);
                 Navigator.of(context).pop(); // Close dialog
                 Navigator.of(context).pop(); // Go back to list
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -55,12 +68,12 @@ class PostDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.textLight,
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        foregroundColor: AppColors.textLight,
+        foregroundColor: AppColors.cream,
         title: const Text('Post',
         style: TextStyle(
-          fontSize: 24,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
         ),),
         backgroundColor: AppColors.darkBlue,
@@ -78,38 +91,50 @@ class PostDetailPage extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           PostCard(
             post: post,
             detail: true,
           ),
 
-          const SizedBox(height: 16),
-
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'Comments',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
             ),
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 12),
 
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: post.comments.length,
-              itemBuilder: (context, index) {
-                final comment = post.comments[index];
-                return CommentCard(comment: comment);
-              },
+          if (post.commentCount > 0) 
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                itemCount: post.comments.length,
+                itemBuilder: (context, index) {
+                  final comment = post.comments[index];
+                  return CommentCard(post: post, comment: comment);
+                },
+              ),
             ),
-          ),
+          
+          if (post.commentCount == 0) 
+            Container(
+              alignment: Alignment.center,
+              padding: EdgeInsets.symmetric(vertical: 50, horizontal: 16),
+              child: Text(
+                'No comments yet',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
         ],
       )
     );
