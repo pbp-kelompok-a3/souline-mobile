@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/navigation_bar.dart';
@@ -16,6 +17,8 @@ class EventModel {
   final DateTime date;
   final String description;
   final String poster;
+  final String location;
+  final String createdBy;
 
   EventModel({
     required this.id,
@@ -23,15 +26,33 @@ class EventModel {
     required this.date,
     required this.description,
     required this.poster,
+    required this.location,
+    required this.createdBy,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
+    final dateRaw = json['date'] ?? '';
+    DateTime parsed = DateTime.tryParse(dateRaw) ?? DateTime.now();
+    if (!dateRaw.contains('-')) {
+      try {
+        parsed = DateFormat("dd MMMM yyyy").parse(dateRaw);
+      } catch (_) {
+        try {
+          parsed = DateFormat("dd MMM yyyy").parse(dateRaw);
+        } catch (_) {
+          parsed = DateTime.now();
+        }
+      }
+    }
+
     return EventModel(
-      id: json['id'],
-      name: json['name'],
-      date: DateFormat("dd MMMM yyyy").parse(json['date']),
+      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
+      name: json['name'] ?? '',
+      date: parsed,
       description: json['description'] ?? '',
       poster: json['poster'] ?? '',
+      location: json['location'] ?? '',
+      createdBy: json['created_by'] ?? '',
     );
   }
 }
@@ -44,13 +65,32 @@ class EventsPage extends StatefulWidget {
 }
 
 class _EventsPageState extends State<EventsPage> {
-  String selectedCity = 'Jakarta';
-  String selectedDateFilter = 'all'; // all / soon / later
+  String selectedCity = '';
+  String selectedDateFilter = 'all';
   late Future<List<EventModel>> futureEvents;
-
   bool isFilterVisible = false;
+  String currentUsername = '';
+  String authToken = '';
 
-  bool isLoggedIn = true; // ganti sesuai auth kamu
+  @override
+  void initState() {
+    super.initState();
+    _loadAuthInfo().then((_) {
+      futureEvents = fetchEvents();
+      setState(() {});
+    });
+  }
+
+  Future<void> _loadAuthInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      currentUsername = prefs.getString('username') ?? '';
+      authToken = prefs.getString('auth_token') ?? '';
+    } catch (_) {
+      currentUsername = '';
+      authToken = '';
+    }
+  }
 
   String joinBase(String path) {
     final base = AppConstants.baseUrl;
@@ -64,12 +104,6 @@ class _EventsPageState extends State<EventsPage> {
     return joinBase(path);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    futureEvents = fetchEvents();
-  }
-
   Future<List<EventModel>> fetchEvents() async {
     String url = joinBase('events/json/');
     if (selectedDateFilter == 'soon') {
@@ -78,19 +112,49 @@ class _EventsPageState extends State<EventsPage> {
       url = joinBase('events/json/later/');
     }
 
-    final response = await http.get(Uri.parse(url));
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
+
+    final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((e) => EventModel.fromJson(e)).toList();
     } else {
-      throw Exception('Failed to load events');
+      throw Exception('Failed to load events (${response.statusCode})');
+    }
+  }
+
+  Future<void> _deleteEvent(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Delete event?'),
+        content: const Text('Are you sure you want to delete this event?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final url = joinBase('events/api/$id/delete/');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
+
+    final resp = await http.delete(Uri.parse(url), headers: headers);
+    if (resp.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event deleted')));
+      setState(() {
+        futureEvents = fetchEvents();
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: ${resp.statusCode}')));
     }
   }
 
   void _toggleFilter() {
-    setState(() {
-      isFilterVisible = !isFilterVisible;
-    });
+    setState(() => isFilterVisible = !isFilterVisible);
   }
 
   void _applyFilter(String city, String dateFilter) {
@@ -104,162 +168,165 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final headerLocationLabel = selectedCity.isEmpty ? 'All Locations' : selectedCity;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: Stack(
         children: [
-          Column(
-            children: [
-              // HEADER
-              Container(
-                height: 110,
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.darkBlue, AppColors.teal],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+          Column(children: [
+            // fancy header
+            Container(
+              height: 160,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.darkBlue, AppColors.teal],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                alignment: Alignment.bottomCenter,
-                child: const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    "Event",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      const Text('Event', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      // search bar
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8)],
+                              ),
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.search, color: Colors.grey),
+                                  SizedBox(width: 10),
+                                  Text('Search events', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: _toggleFilter,
+                            child: Container(
+                              height: 48,
+                              width: 48,
+                              decoration: BoxDecoration(color: AppColors.cream.withOpacity(0.9), borderRadius: BorderRadius.circular(12)),
+                              child: Icon(Icons.tune, color: AppColors.darkBlue),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
                   ),
                 ),
               ),
+            ),
 
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-              // SEARCH + FILTER
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+            // location label
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Container(
-                        height: 42,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.search, color: Colors.grey),
-                            SizedBox(width: 8),
-                            Text('Search events',
-                                style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
+                    const Text('📍 ', style: TextStyle(fontSize: 20)),
+                    Text(headerLocationLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    if (selectedCity.isNotEmpty)
+                      TextButton(
+                        onPressed: () => _applyFilter('', 'all'),
+                        child: const Text('Clear', style: TextStyle(color: AppColors.darkBlue)),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: _toggleFilter,
-                      child: Container(
-                        height: 42,
-                        width: 42,
-                        decoration: BoxDecoration(
-                          color: AppColors.teal,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.tune, color: Colors.white),
-                      ),
-                    )
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-              // CITY
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "📍 $selectedCity",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+            // list area
+            Expanded(
+              child: FutureBuilder<List<EventModel>>(
+                future: futureEvents,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final allEvents = snapshot.data ?? [];
+                  final visibleEvents = selectedCity.isEmpty
+                      ? allEvents
+                      : allEvents.where((e) => e.location.toLowerCase().contains(selectedCity.toLowerCase())).toList();
+
+                  if (visibleEvents.isEmpty) {
+                    return const Center(child: Text('No upcoming events yet.'));
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 120, left: 16, right: 16, top: 8),
+                    itemCount: visibleEvents.length,
+                    itemBuilder: (context, index) {
+                      final event = visibleEvents[index];
+                      final isOwner = currentUsername.isNotEmpty && currentUsername == event.createdBy;
+                      return EventCard(
+                        event: event,
+                        posterUrl: buildPosterUrl(event.poster),
+                        isOwner: isOwner,
+                        onDetail: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EventDetailPage(event: event, baseUrl: AppConstants.baseUrl, currentUsername: currentUsername),
+                            ),
+                          ).then((_) => setState(() => futureEvents = fetchEvents()));
+                        },
+                        onEdit: isOwner
+                            ? () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => AddEventPage(editEvent: event))).then((_) => setState(() => futureEvents = fetchEvents()));
+                              }
+                            : null,
+                        onDelete: isOwner ? () => _deleteEvent(event.id) : null,
+                      );
+                    },
+                  );
+                },
               ),
-
-              const SizedBox(height: 12),
-
-              // LIST
-              Expanded(
-                child: FutureBuilder<List<EventModel>>(
-                  future: futureEvents,
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(
-                          child: CircularProgressIndicator());
-                    }
-
-                    final events = snapshot.data!;
-
-                    return ListView.builder(
-                      padding:
-                          const EdgeInsets.only(bottom: 120, left: 16, right: 16),
-                      itemCount: events.length,
-                      itemBuilder: (context, index) {
-                        final event = events[index];
-                        return EventCard(
-                          event: event,
-                          posterUrl: buildPosterUrl(event.poster),
-                          onDetail: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EventDetailPage(
-                                  event: event,
-                                  baseUrl: AppConstants.baseUrl,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ]),
 
           if (isFilterVisible)
-            EventFilter(onApply: _applyFilter),
+            Positioned(top: 180, left: 20, right: 20, child: Material(elevation: 6, borderRadius: BorderRadius.circular(16), child: EventFilter(onApply: _applyFilter))),
 
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: FloatingNavigationBar(currentIndex: 4),
-          )
+          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 4)),
         ],
       ),
-
-      floatingActionButton: isLoggedIn
-          ? FloatingActionButton(
-              backgroundColor: AppColors.teal,
-              child: const Icon(Icons.add, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddEventPage()),
-                );
-              },
+      floatingActionButton: (currentUsername.isNotEmpty)
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: FloatingActionButton(
+                backgroundColor: AppColors.orange,
+                child: const Icon(Icons.add, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AddEventPage())).then((_) => setState(() => futureEvents = fetchEvents()));
+                },
+              ),
             )
           : null,
     );
