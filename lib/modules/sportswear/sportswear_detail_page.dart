@@ -17,8 +17,10 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
   static const Color ratingColor = Color(0xFFFFCC00);
   static const Color accentColor = Color(0xFF90B4C8);
 
+  final SportswearService _service = SportswearService();
+  bool _isDeleting = false;
+
   void _navigateToEdit(BuildContext context) async {
-    // Navigasi ke form edit dan tunggu hasilnya
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => SportswearBrandFormPage(brand: widget.product)),
@@ -30,6 +32,85 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
     }
   }
 
+  // Memproses penghapusan
+  Future<void> _deleteSportswear() async {
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await _service.deleteBrand(widget.product.id);
+
+      if (mounted) {
+        // Tutup dialog konfirmasi
+        Navigator.of(context).pop();
+
+        // Kembali ke halaman utama/list
+        Navigator.of(context).pop(true);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Sportswear deleted successfully!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Jika gagal, tutup dialog tapi jangan pop halaman detail
+        Navigator.of(context).pop();
+        setState(() {
+          _isDeleting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // Pop-up konfirmasi Delete
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: !_isDeleting,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Delete Sportswear'),
+              content: _isDeleting
+                  ? const SizedBox(height: 50, child: Center(child: CircularProgressIndicator()))
+                  : Text('Are you sure you want to delete "${widget.product.name}"? This action cannot be undone.'),
+              actions: <Widget>[
+                if (!_isDeleting) ...[
+                  TextButton(
+                    child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      setDialogState(() {
+                        _isDeleting = true;
+                      });
+                      _deleteSportswear();
+                    },
+                  ),
+                ],
+              ],
+            );
+          }
+        );
+      },
+    ).then((_) {
+      if (mounted && _isDeleting) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -39,7 +120,7 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
       backgroundColor: Colors.grey[100],
       body: CustomScrollView(
         slivers: [
-          // App bar dengan Gambar Brand
+          // App bar
           SliverAppBar(
             expandedHeight: 250,
             pinned: true,
@@ -76,10 +157,18 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
               ),
             ),
             actions: [
+              // Tombol EDIT
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white),
                 onPressed: () => _navigateToEdit(context),
                 tooltip: 'Edit Brand',
+              ),
+
+              // Tombol DELETE
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.white),
+                onPressed: _showDeleteConfirmationDialog, // Panggil dialog konfirmasi
+                tooltip: 'Delete Brand',
               ),
             ],
           ),
