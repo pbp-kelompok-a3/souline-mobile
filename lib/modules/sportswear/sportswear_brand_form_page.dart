@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../shared/models/sportswear_model.dart';
 import 'sportswear_page.dart';
+import 'package:souline_mobile/shared/models/sportswear_model.dart';
 
 class SportswearBrandFormPage extends StatefulWidget {
   final Product? brand;
