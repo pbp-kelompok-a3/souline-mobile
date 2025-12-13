@@ -49,11 +49,11 @@ class City {
 }
 
 enum UserKota {
-    BEKASI,
+    JAKARTA,
     BOGOR,
     DEPOK,
-    JAKARTA,
-    TANGERANG
+    TANGERANG,
+    BEKASI,
 }
 
 final userKotaValues = EnumValues({

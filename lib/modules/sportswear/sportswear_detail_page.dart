@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'sportswear_brand_form_page.dart';
 import 'sportswear_model.dart';
-import 'sportswear_page.dart';
 
 class SportswearDetailPage extends StatefulWidget {
   final Product product;
@@ -324,7 +323,7 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
           ...reviews.map((review) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _buildReviewItem(review),
-          )).toList(),
+          )),
       ],
     );
   }
