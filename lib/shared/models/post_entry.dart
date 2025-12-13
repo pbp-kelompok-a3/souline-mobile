@@ -46,6 +46,7 @@ class Result {
     int commentCount;
     List<Comment> comments;
     DateTime created_at;
+    Map<String, dynamic>? attachment;
 
     Result({
         required this.id,
@@ -61,6 +62,7 @@ class Result {
         required this.commentCount,
         required this.comments,
         required this.created_at,
+        this.attachment,
     });
 
     factory Result.fromJson(Map<String, dynamic> json) => Result(
@@ -77,6 +79,7 @@ class Result {
         commentCount: json["comment_count"],
         comments: List<Comment>.from(json["comments"].map((x) => Comment.fromJson(x))),
         created_at: DateTime.parse(json["created_at"]),
+        attachment: json['attachment']
     );
 
     Map<String, dynamic> toJson() => {
@@ -92,7 +95,8 @@ class Result {
         "liked_by_user": likedByUser,
         "comment_count": commentCount,
         "comments": List<dynamic>.from(comments.map((x) => x.toJson())),
-        "created_at": created_at
+        "created_at": created_at,
+        "attachment": attachment,
     };
 }
 

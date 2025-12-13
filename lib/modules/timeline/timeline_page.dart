@@ -6,6 +6,7 @@ import 'package:souline_mobile/modules/timeline/attachments.dart';
 import 'package:souline_mobile/modules/timeline/post_detail.dart';
 import 'package:souline_mobile/modules/timeline/post_form.dart';
 import 'package:souline_mobile/modules/timeline/widgets/post_card.dart';
+import 'package:souline_mobile/shared/models/sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
@@ -47,7 +48,18 @@ class TimelinePageState extends State<TimelinePage> {
       created_at: DateTime.now()
       ),
     Result(id: 2, authorUsername: 'user2', text: 'This is a sample post.', likeCount: 3, commentCount: 1, likedByUser: true, comments: [Comment(id: 1, postId: 2, authorUsername: 'user1', content: 'komen', createdAt: DateTime.now())], created_at: DateTime.now()),
-    Result(id: 3, authorUsername: 'user3', text: 'madame morrible flip it around wicked witchhhh bduiwiawhdeiuhduhdeyqj', likeCount: 10, commentCount: 0, likedByUser: false, comments: [], created_at: DateTime.now()),
+    Result(id: 3, authorUsername: 'user3', text: 'madame morrible flip it around wicked witchhhh bduiwiawhdeiuhduhdeyqj', likeCount: 10, commentCount: 0, likedByUser: false, comments: [], created_at: DateTime.now(),
+      attachment: {
+      "id": 1,
+      "name": "Lululemon",
+      "description": "description",
+      "tag": "Sportswear",
+      "thumbnail":
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
+      "rating": 4,
+      "link": "https://shop.lululemon.com/",
+      "timelineReviews": [],
+    },),
   ];
 
   // @override

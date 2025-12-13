@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/modules/timeline/attachments.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class PostFormPage extends StatefulWidget {
@@ -17,31 +18,26 @@ class _PostFormPageState extends State<PostFormPage> {
 
   late TextEditingController _textController;
   late TextEditingController _imageController;
-  late TextEditingController _attachmentController;
 
+  Map<String, dynamic>? attachments;
   bool get _isEditing => widget.post != null;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize controllers with existing values if editing
-    _textController = TextEditingController(
-      text: widget.post?.text ?? '',
-    );
-    _imageController = TextEditingController(
-      text: widget.post?.image ?? '',
-    );
-    // _attachmentController = TextEditingController(
-    //   text: widget.post?.attachments ?? '',
-    //   );
+    _textController = TextEditingController(text: widget.post?.text ?? '');
+    _imageController = TextEditingController(text: widget.post?.image ?? '');
+    
+    if (widget.post != null && widget.post!.attachment != null) {
+      attachments = Map<String, dynamic>.from(widget.post!.attachment!);
+    }
   }
 
   @override
   void dispose() {
     _textController.dispose();
     _imageController.dispose();
-    _attachmentController.dispose();
     super.dispose();
   }
 
@@ -86,8 +82,25 @@ class _PostFormPageState extends State<PostFormPage> {
     }
   }
 
+  Future<void> _openAttachmentSelector(String type) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AttachmentSelectorPage(type: type),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        attachments = result;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final attachment = attachments;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
@@ -189,6 +202,48 @@ class _PostFormPageState extends State<PostFormPage> {
               ]
             ),
 
+            if (attachment != null)
+            Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.textLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withOpacity(0.25)),
+                    ),
+                    child: ListTile(
+                      leading: Image.network(
+                        attachment['thumbnail'] ?? '',
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                      title: Text(attachment['name'] ?? '', 
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold),
+                          ),
+                      subtitle: Text(attachment['tag'] ?? attachment['type'] ?? 'Attachment'),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.all(24),
+                  onPressed: () {
+                    setState(() {
+                      attachments = null;
+                    });
+                  },
+                  icon: Icon(
+                    Icons.close,
+                    size: 24,
+                    color: AppColors.textMuted,
+                    ))
+              ]
+            ),
+
             SizedBox(height: 20),
             Divider(
               height: 4,
@@ -207,11 +262,15 @@ class _PostFormPageState extends State<PostFormPage> {
                 ),
                 IconButton(
                   icon: Icon(Icons.video_library, color: AppColors.darkBlue),
-                  onPressed: () {}
+                  onPressed: () {
+                    _openAttachmentSelector("Resources");
+                  }
                 ),
                 IconButton(
                   icon: Icon(Icons.shopping_bag, color: AppColors.darkBlue),
-                  onPressed: () {}
+                  onPressed: () {
+                    _openAttachmentSelector("Sportswear");
+                  }
                 ),
               ],
             ),
