@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'sportswear_model.dart';
+import '../../shared/models/sportswear_model.dart';
 import 'sportswear_page.dart';
 
 class SportswearBrandFormPage extends StatefulWidget {

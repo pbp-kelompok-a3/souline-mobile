@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PostCard extends StatefulWidget {
   final Result post;
@@ -60,6 +61,7 @@ class _PostCardState extends State<PostCard> {
   Widget build(BuildContext context) {
   final post = widget.post;
   final detail = widget.detail;
+  Map<String, dynamic>? attachment = post.attachment;
 
   return GestureDetector(
     onTap: widget.onTap,
@@ -130,7 +132,41 @@ class _PostCardState extends State<PostCard> {
                         ),
                       ),
 
-                    SizedBox(height: detail == true ? 12 : 0,),
+                    SizedBox(height: detail == true ? 10 : 0,),
+
+                    if (attachment != null)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(0, 0, 12, 0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.textLight,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.withOpacity(0.25)),
+                        ),
+                        child: ListTile(
+                          leading: Image.network(
+                            attachment['thumbnail'] ?? '',
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          ),
+                          title: Text(attachment['name'] ?? '', 
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold),
+                              ),
+                          subtitle: Text(attachment['tag'] ?? attachment['type'] ?? 'Attachment'),
+                          onTap: () async {
+                            final url = attachment['link'] ?? '';
+
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: detail == true ? 8 : 0),
 
                     if (detail == true)
                       Text(
