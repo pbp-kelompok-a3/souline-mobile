@@ -5,6 +5,7 @@ import 'sportswear_detail_page.dart';
 import 'sportswear_brand_form_page.dart';
 import 'sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
+import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
 
 const Color primaryBrandColor = Color(0xFF5E8096);
 const Color accentColor = Color(0xFF90B4C8);
@@ -86,6 +87,24 @@ class SportswearService {
       throw Exception('Failed to update brand. Status: ${response.statusCode}, Body: $errorBody');
     }
   }
+
+  // DELETE
+  Future<void> deleteBrand(int id) async {
+    final headers = await _getAuthHeaders();
+    final url = Uri.parse('$_baseUrl/delete/$id/');
+
+    final response = await http.delete(
+      url,
+      headers: headers,
+    );
+
+    // Menerima 200 (OK) atau 204 (No Content)
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    } else {
+      throw Exception('Failed to delete brand. Status: ${response.statusCode}, Body: ${response.body}');
+    }
+  }
 }
 
 // WIDGET UTAMA
@@ -106,6 +125,8 @@ class _SportswearPageState extends State<SportswearPage> {
 
   late Future<List<Product>> _brandsFuture;
   final List<String> _availableTags = ['All', 'Yoga', 'Pilates'];
+
+  final int _navigationIndex = 0;
 
   @override
   void initState() {
@@ -129,6 +150,7 @@ class _SportswearPageState extends State<SportswearPage> {
     });
   }
 
+  // Navigasi ke Form (Create/Edit)
   void _navigateToFormPage({Product? product}) async {
     final result = await Navigator.push(
       context,
@@ -140,6 +162,7 @@ class _SportswearPageState extends State<SportswearPage> {
     }
   }
 
+  // Fungsi Filter Dialog
   void _showTagFilterDialog() {
     showDialog(
       context: context,
@@ -183,96 +206,92 @@ class _SportswearPageState extends State<SportswearPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: scaffoldBgColor,
-      body: Column(
+
+      body: Stack(
         children: [
-          AppHeader(
-            title: 'Sportswear',
-            onSearchChanged: _onSearchChanged, // Meneruskan fungsi pencarian
-            onFilterPressed: _showTagFilterDialog, // Meneruskan fungsi filter
-          ),
+          // 1. Konten Utama: Column (Header + List Produk)
+          Column(
+            children: [
+              // Menggunakan AppHeader
+              AppHeader(
+                title: 'Sportswear',
+                onSearchChanged: _onSearchChanged,
+                onFilterPressed: _showTagFilterDialog,
+              ),
 
-          // Wajib menambahkan jarak karena search bar AppHeader melayang ke bawah
-          const SizedBox(height: 40),
-          Expanded(
-            child: FutureBuilder<List<Product>>(
-              future: _brandsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: primaryBrandColor));
-                } else if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text('Failed to load data: ${snapshot.error}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                    ),
-                  );
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(child: Text(_searchQuery.isEmpty && _selectedTagFilter == null ? 'No brands found.' : 'No results for search/filter.'));
-                }
+              const SizedBox(height: 40),
 
-                final brands = snapshot.data!;
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-                  itemCount: brands.length,
-                  itemBuilder: (context, index) {
-                    final product = brands[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 20.0),
-                      child: _ProductCard(
-                        product: product,
-                        onTap: () async {
-                           final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => SportswearDetailPage(product: product)),
-                          );
-                          if (result == true) { _loadBrands(); }
-                        },
-                      ),
+              Expanded(
+                child: FutureBuilder<List<Product>>(
+                  future: _brandsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: primaryBrandColor));
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Text('Failed to load data: ${snapshot.error}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                        ),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Center(child: Text(_searchQuery.isEmpty && _selectedTagFilter == null ? 'No brands found.' : 'No results for search/filter.'));
+                    }
+
+                    final brands = snapshot.data!;
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16.0, 10, 16.0, 120),
+                      itemCount: brands.length,
+                      itemBuilder: (context, index) {
+                        final product = brands[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 20.0),
+                          child: _ProductCard(
+                            product: product,
+                            onTap: () async {
+                              // Navigasi ke Detail Page dan tunggu hasilnya
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => SportswearDetailPage(product: product)),
+                              );
+                              // Jika result == true, berarti ada perubahan (Edit/Delete), maka refresh list
+                              if (result == true) { _loadBrands(); }
+                            },
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ),
+            ],
+          ),
+
+          // 2. Navigation Bar Mengambang
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: FloatingNavigationBar(
+              currentIndex: _navigationIndex,
+            ),
+          ),
+
+          // 3. Floating Action Button
+          Positioned(
+            right: 25,
+            bottom: 100,
+            child: FloatingActionButton(
+              onPressed: () => _navigateToFormPage(),
+              backgroundColor: accentColor,
+              child: const Icon(Icons.add, color: Colors.white),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToFormPage(),
-        backgroundColor: accentColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    const Color inactiveColor = Colors.grey;
-    const Color activeColor = primaryBrandColor;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 1.0)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildBottomNavItem(Icons.apps_rounded, activeColor),
-            _buildBottomNavItem(Icons.location_on_outlined, inactiveColor),
-            _buildBottomNavItem(Icons.home_outlined, inactiveColor),
-            _buildBottomNavItem(Icons.calendar_today_outlined, inactiveColor),
-            _buildBottomNavItem(Icons.people_outlined, inactiveColor),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavItem(IconData icon, Color color) {
-    return Icon(icon, size: 30, color: color);
-  }
 }
 
 // PRODUCT CARD WIDGET
