@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'sportswear_detail_page.dart';
 import 'sportswear_brand_form_page.dart';
-import '../../shared/models/sportswear_model.dart';
+import 'sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 
 const Color primaryBrandColor = Color(0xFF5E8096);
@@ -31,7 +31,7 @@ class SportswearService {
     }
 
     if (params.isNotEmpty) {
-      url += '?' + Uri(queryParameters: params).query;
+      url += '?${Uri(queryParameters: params).query}';
     }
 
     final response = await http.get(Uri.parse(url));
@@ -83,7 +83,7 @@ class SportswearService {
       throw Exception('Validation Failed: ${errorBody['errors'] ?? 'Invalid data submitted'}');
     } else {
       final errorBody = jsonDecode(response.body);
-      throw Exception('Failed to update brand. Status: ${response.statusCode}, Body: ${errorBody}');
+      throw Exception('Failed to update brand. Status: ${response.statusCode}, Body: $errorBody');
     }
   }
 }
@@ -336,7 +336,7 @@ class __ProductCardState extends State<_ProductCard> {
                         ...reviews.map((review) => Padding(
                           padding: const EdgeInsets.only(top: 10.0),
                           child: _buildReviewItem(context, review: review),
-                        )).toList(),
+                        )),
                   ],
                 ),
               ),

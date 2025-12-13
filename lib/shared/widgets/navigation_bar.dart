@@ -25,8 +25,8 @@ class FloatingNavigationBar extends StatelessWidget {
     ];
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(25, 0, 25, 30),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       decoration: BoxDecoration(
         color: AppColors.cream,
         borderRadius: BorderRadius.circular(30),

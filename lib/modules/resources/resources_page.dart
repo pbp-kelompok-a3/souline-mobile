@@ -9,6 +9,7 @@ import 'package:souline_mobile/modules/resources/widgets/level_badge.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
 import 'package:souline_mobile/modules/resources/resources_form_page.dart';
 
+
 class ResourcesPage extends StatefulWidget {
   const ResourcesPage({super.key});
 
@@ -20,6 +21,58 @@ class _ResourcesPageState extends State<ResourcesPage> {
   String? _selectedLevel; // null = mode default (section view)
   String _searchQuery = '';
   bool isAdmin = true; 
+
+  late List<ResourcesEntry> dummyResources;
+
+  @override
+  void initState() {
+    super.initState();
+    dummyResources = [
+      ResourcesEntry(
+        id: 1,
+        title: '30 MIN PILATES',
+        description:
+            'This beginner-to-moderate level Pilates class is perfect...',
+        youtubeUrl: 'https://www.youtube.com/embed/wtVyZmHnlxM',
+        videoId: 'wtVyZmHnlxM',
+        thumbnailUrl:
+            'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
+        level: 'beginner',
+      ),
+      ResourcesEntry(
+        id: 2,
+        title: '30 MIN FULL BODY',
+        description: 'Intermediate full body pilates...',
+        youtubeUrl: 'https://www.youtube.com/embed/C2HX2pNbUCM',
+        videoId: 'C2HX2pNbUCM',
+        thumbnailUrl:
+            'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
+        level: 'intermediate',
+      ),
+      ResourcesEntry(
+        id: 3,
+        title:
+            'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
+        description: 'Beginner pilates session...',
+        youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
+        videoId: 'sPNpgaXVGw4',
+        thumbnailUrl:
+            'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
+        level: 'beginner',
+      ),
+      ResourcesEntry(
+        id: 4,
+        title:
+            'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
+        description: 'Advanced pilates session...',
+        youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
+        videoId: 'sPNpgaXVGw4',
+        thumbnailUrl:
+            'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
+        level: 'advanced',
+      ),
+    ];
+  }
 
   Color _primaryColorForLevel(String? level) {
     switch (level?.toLowerCase()) {
@@ -46,52 +99,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
   }
 
   // sementara dummy data
-  List<ResourcesEntry> get dummyResources => [
-    ResourcesEntry(
-      id: 1,
-      title: '30 MIN PILATES',
-      description:
-          'This beginner-to-moderate level Pilates class is perfect...',
-      youtubeUrl: 'https://www.youtube.com/embed/wtVyZmHnlxM',
-      videoId: 'wtVyZmHnlxM',
-      thumbnailUrl:
-          'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
-      level: 'beginner',
-    ),
-    ResourcesEntry(
-      id: 2,
-      title: '30 MIN FULL BODY',
-      description: 'Intermediate full body pilates...',
-      youtubeUrl: 'https://www.youtube.com/embed/C2HX2pNbUCM',
-      videoId: 'C2HX2pNbUCM',
-      thumbnailUrl:
-          'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
-      level: 'intermediate',
-    ),
-    ResourcesEntry(
-      id: 3,
-      title:
-          'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
-      description: 'Beginner pilates session...',
-      youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
-      videoId: 'sPNpgaXVGw4',
-      thumbnailUrl:
-          'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
-      level: 'beginner',
-    ),
-    ResourcesEntry(
-      id: 4,
-      title:
-          'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
-      description: 'Advanced pilates session...',
-      youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
-      videoId: 'sPNpgaXVGw4',
-      thumbnailUrl:
-          'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
-      level: 'advanced',
-    ),
-  ];
-
+  // List<ResourcesEntry> get dummyResources => [ ... ]; // removed getter
   // -------------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -126,15 +134,13 @@ class _ResourcesPageState extends State<ResourcesPage> {
                   : _buildFilteredVerticalView(all),
             ),
 
-            // === HEADER DI ATAS SEMUA ===
-            AppHeader(
-              title: 'Resources',
-              onSearchChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              onFilterPressed: () async {
+          // === HEADER DI ATAS SEMUA ===
+          AppHeader(
+            title: 'Resources',
+            onSearchChanged: _onSearch,
+            filterHeroTag: 'resources-filter-hero',
+            filterButton: GestureDetector(
+              onTap: () async {
                 final level = await Navigator.of(context).push<String>(
                   HeroDialogRoute(
                     builder: (_) => const ResourcesFilterDialog(),
@@ -145,9 +151,19 @@ class _ResourcesPageState extends State<ResourcesPage> {
                   setState(() => _selectedLevel = level);
                 }
               },
-              filterHeroTag: 'resources-filter-hero',
+              child: Container(
+                height: 48,
+                width: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8BC5FF),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.tune, color: Colors.white),
+              ),
             ),
-            const Positioned(
+          ),    
+
+          const Positioned(
               left: 0,
               right: 0,
               bottom: 0,
@@ -193,11 +209,50 @@ class _ResourcesPageState extends State<ResourcesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (beginner.isNotEmpty)
-            _ResourcesSection(label: 'Beginner', resources: beginner),
+            _ResourcesSection(
+              label: 'Beginner', 
+              resources: beginner,
+              isAdmin: isAdmin,
+              onEdit: (r) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                  ),
+                );
+              },
+              onDelete: _confirmDelete,
+            ),
           if (intermediate.isNotEmpty)
-            _ResourcesSection(label: 'Intermediate', resources: intermediate),
+            _ResourcesSection(
+              label: 'Intermediate', 
+              resources: intermediate,
+              isAdmin: isAdmin,
+              onEdit: (r) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                  ),
+                );
+              },
+              onDelete: _confirmDelete,
+            ),
           if (advanced.isNotEmpty)
-            _ResourcesSection(label: 'Advanced', resources: advanced),
+            _ResourcesSection(
+              label: 'Advanced', 
+              resources: advanced,
+              isAdmin: isAdmin,
+              onEdit: (r) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                  ),
+                );
+              },
+              onDelete: _confirmDelete,
+            ),
         ],
       ),
     );
@@ -279,6 +334,12 @@ class _ResourcesPageState extends State<ResourcesPage> {
     );
   }
 
+  void _onSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+
   void _confirmDelete(ResourcesEntry r) {
     showDialog(
       context: context,
@@ -319,11 +380,16 @@ class _ResourcesPageState extends State<ResourcesPage> {
 class _ResourcesSection extends StatelessWidget {
   final String label;
   final List<ResourcesEntry> resources;
+  final bool isAdmin;
+  final Function(ResourcesEntry)? onEdit;
+  final Function(ResourcesEntry)? onDelete;
 
   const _ResourcesSection({
     required this.label,
     required this.resources,
- 
+    required this.isAdmin,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -355,19 +421,9 @@ class _ResourcesSection extends StatelessWidget {
                   width: 276,
                   child: ResourcesCard(
                     resource: r,
-                    showAdminActions: true,
-                    onEdit: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
-                        ),
-                      );
-                    },
-                    onDelete: () {
-                      // panggil confirm delete (tapi ingat catatan dummyResources ya)
-                      // _confirmDelete(r);  // <- ini gak bisa langsung karena _ResourcesSection Stateless
-                    },
+                    showAdminActions: isAdmin,
+                    onEdit: () => onEdit?.call(r),
+                    onDelete: () => onDelete?.call(r),
                     onTapDetail: () {
                       Navigator.push(
                         context,
