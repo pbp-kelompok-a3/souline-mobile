@@ -25,6 +25,7 @@ class _StudioPageState extends State<StudioPage> {
   String _searchQuery = '';
   bool _isFilterVisible = false;
   UserKota? _userCity;
+  bool _hasUserKota = false;
   bool _isLoading = true;
   String? _error;
   bool _isAdmin = false;
@@ -47,9 +48,8 @@ class _StudioPageState extends State<StudioPage> {
         .where((studio) => studio.kota == cityFilter)
         .toList();
 
-    // Apply search filter if there's a search query
     if (_searchQuery.isNotEmpty) {
-      // When searching, search across All cities
+      // Search across All cities
       studios = _allStudios.where((studio) {
         final query = _searchQuery.toLowerCase();
         return studio.namaStudio.toLowerCase().contains(query) ||
@@ -119,6 +119,7 @@ class _StudioPageState extends State<StudioPage> {
       setState(() {
         _allStudios = studios;
         _userCity = entry.userKota;
+        _hasUserKota = entry.hasUserKota;
         _isAdmin = admin;
       });
     } catch (e) {
@@ -145,46 +146,71 @@ class _StudioPageState extends State<StudioPage> {
     final currentCity = _selectedCity ?? _userCity;
     final isSearching = _searchQuery.isNotEmpty;
 
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.cream,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.darkBlue),
-        ),
-      );
-    }
-
-    if (_error != null) {
+    // Show loading or error state with AppHeader
+    if (_isLoading || _error != null) {
       return Scaffold(
         backgroundColor: AppColors.cream,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        drawer: const LeftDrawer(),
+        body: Stack(
+          children: [
+            Column(
               children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.darkBlue,
-                  ),
+                AppHeader(
+                  title: 'Studio',
+                  onSearchChanged: _onSearchChanged,
+                  onFilterPressed: _toggleFilter,
+                  showDrawerButton: true,
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadData,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.darkBlue,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Retry'),
+                Expanded(
+                  child: _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Colors.red,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.darkBlue,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _loadData,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.darkBlue,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.darkBlue,
+                          ),
+                        ),
                 ),
               ],
             ),
-          ),
+            const Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: FloatingNavigationBar(currentIndex: 1),
+            ),
+          ],
         ),
       );
     }
@@ -200,6 +226,7 @@ class _StudioPageState extends State<StudioPage> {
                 title: 'Studio',
                 onSearchChanged: _onSearchChanged,
                 onFilterPressed: _toggleFilter,
+                showDrawerButton: true,
               ),
               const SizedBox(height: 42),
 
@@ -221,7 +248,9 @@ class _StudioPageState extends State<StudioPage> {
                         color: AppColors.darkBlue,
                       ),
                     ),
-                    if (currentCity == _userCity && !isSearching)
+                    if (currentCity == _userCity &&
+                        _hasUserKota &&
+                        !isSearching)
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
                         child: Text(
