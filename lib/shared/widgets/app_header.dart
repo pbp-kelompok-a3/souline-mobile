@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 class AppHeader extends StatelessWidget {
   final String title;
-  final Function(String)? onSearchChanged; // <-- search logic beda tiap modul
-  final VoidCallback? onFilterPressed;     // <-- filter logic beda tiap modul
-  final String? filterHeroTag;             // <-- hero tag OPSIONAL
+  final Function(String)? onSearchChanged;
+  final VoidCallback? onFilterPressed;
+  final String? filterHeroTag;
+  final Widget? filterButton;
+  final bool showDrawerButton; // <-- tampilkan left drawer
 
   const AppHeader({
     super.key,
@@ -12,30 +14,32 @@ class AppHeader extends StatelessWidget {
     this.onSearchChanged,
     this.onFilterPressed,
     this.filterHeroTag,
+    this.filterButton,
+    this.showDrawerButton = false,
   });
 
   @override
   Widget build(BuildContext context) {
-
-    Widget filterButton = GestureDetector(
-      onTap: onFilterPressed, // <--- pake callback
-      child: Container(
-        height: 48,
-        width: 48,
-        decoration: BoxDecoration(
+    // Build filter button with Material + InkWell for proper click feedback
+    Widget filterBtn =
+        filterButton ??
+        Material(
           color: const Color(0xFF62C4D9),
           borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Icon(Icons.tune, color: Colors.white),
-      ),
-    );
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onFilterPressed,
+            borderRadius: BorderRadius.circular(18),
+            child: const SizedBox(
+              height: 48,
+              width: 48,
+              child: Icon(Icons.tune, color: Colors.white),
+            ),
+          ),
+        );
 
-
-    if (filterHeroTag != null) {
-      filterButton = Hero(
-        tag: filterHeroTag!,
-        child: filterButton,
-      );
+    if (filterHeroTag != null && filterButton == null) {
+      filterBtn = Hero(tag: filterHeroTag!, child: filterBtn);
     }
 
     return Stack(
@@ -55,32 +59,30 @@ class AppHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context); 
-                },
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-
-              Expanded(
-                child: Center(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    if (showDrawerButton) {
+                      Scaffold.of(context).openDrawer();
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Icon(
+                      showDrawerButton ? Icons.menu : Icons.arrow_back,
                       color: Colors.white,
+                      size: 28,
                     ),
                   ),
                 ),
               ),
+
               const Spacer(),
+
               Text(
                 title,
                 style: const TextStyle(
@@ -89,7 +91,6 @@ class AppHeader extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(width: 28),
             ],
           ),
         ),
@@ -97,8 +98,8 @@ class AppHeader extends StatelessWidget {
         // SEARCH BAR
         Positioned(
           left: 24,
-          right: 96,
-          bottom: -28,
+          right: 88,
+          bottom: -25,
           child: Container(
             height: 50,
             decoration: BoxDecoration(
@@ -107,7 +108,7 @@ class AppHeader extends StatelessWidget {
               border: Border.all(color: const Color(0xFF62C4D9)),
             ),
             child: TextField(
-              onChanged: onSearchChanged, // <--- pake callback
+              onChanged: onSearchChanged,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
                 hintText: "Search...",
@@ -117,11 +118,15 @@ class AppHeader extends StatelessWidget {
           ),
         ),
 
-        // FILTER BUTTON (pakai filterButton yang sudah bisa Hero)
+        // FILTER BUTTON
         Positioned(
           right: 24,
-          bottom: -24,
-          child: filterButton,
+          bottom: -25,
+          child: SizedBox(
+            height: 50,
+            width: 50,
+            child: Center(child: filterBtn),
+          ),
         ),
       ],
     );
