@@ -16,7 +16,6 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
-  String? _selectedTagFilter;
 
   late Future<List<Product>> _brandsFuture;
 
@@ -31,41 +30,41 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
     }
   }
 
-  List<Map<String, dynamic>> dummySportswear = [
-    {
-      "id": 1,
-      "name": "Lululemon",
-      "description": "description",
-      "tag": "Sportswear",
-      "thumbnail":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
-      "rating": 4,
-      "link": "https://shop.lululemon.com/",
-      "timelineReviews": [],
-    },
-    {
-      "id": 2,
-      "name": "Lululemon",
-      "description": "description",
-      "tag": "Sportswear",
-      "thumbnail":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
-      "rating": 4,
-      "link": "https://shop.lululemon.com/",
-      "timelineReviews": [],
-    },
-    {
-      "id": 3,
-      "name": "Lululemon",
-      "description": "description",
-      "tag": "Sportswear",
-      "thumbnail":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
-      "rating": 4,
-      "link": "https://shop.lululemon.com/",
-      "timelineReviews": [],
-    },
-  ];
+  // List<Map<String, dynamic>> dummySportswear = [
+  //   {
+  //     "id": 1,
+  //     "name": "Lululemon",
+  //     "description": "description",
+  //     "tag": "Sportswear",
+  //     "thumbnail":
+  //         "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
+  //     "rating": 4,
+  //     "link": "https://shop.lululemon.com/",
+  //     "timelineReviews": [],
+  //   },
+  //   {
+  //     "id": 2,
+  //     "name": "Lululemon",
+  //     "description": "description",
+  //     "tag": "Sportswear",
+  //     "thumbnail":
+  //         "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
+  //     "rating": 4,
+  //     "link": "https://shop.lululemon.com/",
+  //     "timelineReviews": [],
+  //   },
+  //   {
+  //     "id": 3,
+  //     "name": "Lululemon",
+  //     "description": "description",
+  //     "tag": "Sportswear",
+  //     "thumbnail":
+  //         "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
+  //     "rating": 4,
+  //     "link": "https://shop.lululemon.com/",
+  //     "timelineReviews": [],
+  //   },
+  // ];
 
   // List<Resource> videos = [];
   List<Product> brands = [];
@@ -91,11 +90,11 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
     return [];
   }
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _brandsFuture = fetchBrands(); 
-  // }
+  @override
+  void initState() {
+    super.initState();
+    _brandsFuture = fetchBrands(); 
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,9 +140,9 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.only(top: 8, bottom: 100),
-              itemCount: dummySportswear.length,
+              itemCount: _filteredData.length,
               itemBuilder: (context, index) {
-                final obj = dummySportswear[index];
+                final obj = _filteredData[index];
                 return Padding(
                   padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: GestureDetector(

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
-import 'package:souline_mobile/modules/timeline/attachments.dart';
 import 'package:souline_mobile/modules/timeline/post_detail.dart';
 import 'package:souline_mobile/modules/timeline/post_form.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 import 'package:souline_mobile/modules/timeline/widgets/post_card.dart';
-import 'package:souline_mobile/shared/models/sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
@@ -20,61 +19,33 @@ class TimelinePage extends StatefulWidget {
 
 class TimelinePageState extends State<TimelinePage> {
   final TextEditingController _searchController = TextEditingController();
-  // List<Result> _posts = [];
-  final bool _loading = true;
+  List<Result> _posts = [];
+  bool _loading = true;
 
   String _sortBy = 'latest';
   String _searchQuery = '';
   bool _isFilterVisible = false;
-  
-  // Future<Post> fetchPosts() async {
-  //   final response = await http.get(Uri.parse('http://localhost:8000/timeline/api/timeline/'));
 
-  //   if (response.statusCode == 200) {
-  //     return postFromJson(response.body); 
-  //   } else {
-  //     throw Exception('Failed to load posts');
-  //   }
-  // }
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  // Mock data for UI development
-  final List<Result> _posts = [
-    Result(id: 1, authorUsername: 'user1', text: 'Hello world!', likeCount: 5, commentCount: 2, likedByUser: false, 
-      image: 'https://www.windowslatest.com/wp-content/uploads/2024/10/Windows-XP-4K-modified.jpg', 
-      comments: [
-        Comment(id: 1, postId: 1, authorUsername: 'user2', content: 'content', createdAt: DateTime.now()),
-        Comment(id: 1, postId: 1, authorUsername: 'user3', content: 'nostalgia', createdAt: DateTime.now()),
-      ],
-      created_at: DateTime.now()
-      ),
-    Result(id: 2, authorUsername: 'user2', text: 'This is a sample post.', likeCount: 3, commentCount: 1, likedByUser: true, comments: [Comment(id: 1, postId: 2, authorUsername: 'user1', content: 'komen', createdAt: DateTime.now())], created_at: DateTime.now()),
-    Result(id: 3, authorUsername: 'user3', text: 'madame morrible flip it around wicked witchhhh bduiwiawhdeiuhduhdeyqj', likeCount: 10, commentCount: 0, likedByUser: false, comments: [], created_at: DateTime.now(),
-      attachment: {
-      "id": 1,
-      "name": "Lululemon",
-      "description": "description",
-      "tag": "Sportswear",
-      "thumbnail":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
-      "rating": 4,
-      "link": "https://shop.lululemon.com/",
-      "timelineReviews": [],
-    },),
-  ];
+  Future<void> _load() async {
+    final request = context.read<CookieRequest>();
+    final service = TimelineService(request);
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _load();
-  // }
-
-  // Future<void> _load() async {
-  //   final data = await fetchPosts();
-  //   setState(() {
-  //     _posts = data.results;   // real list
-  //     _loading = false;
-  //   });
-  // }
+    try {
+      final data = await service.fetchPosts();
+      setState(() {
+        _posts = data.results;
+        _loading = false;
+      });
+    } catch (e) {
+      print("Error loading posts: $e");
+    }
+  }
 
   List<Result> get _filteredPosts {
     if (_searchQuery.isNotEmpty) {

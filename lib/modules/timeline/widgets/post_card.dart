@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,7 +22,10 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   bool _isBookmarked = false;
 
-  void _toggleLike() {
+  Future<void> _toggleLike() async {
+    final request = context.read<CookieRequest>();
+    final service = TimelineService(request);
+
     setState(() {
       if (widget.post.likedByUser) {
         widget.post.likedByUser = false;
@@ -29,6 +35,24 @@ class _PostCardState extends State<PostCard> {
         widget.post.likeCount += 1;
       }
     });
+
+    try {
+      await service.toggleLike(widget.post.id);
+    } catch (e) {
+      setState(() {
+        if (widget.post.likedByUser) {
+          widget.post.likedByUser = false;
+          widget.post.likeCount -= 1;
+        } else {
+          widget.post.likedByUser = true;
+          widget.post.likeCount += 1;
+        }
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+      );
+    }
   }
 
   void _toggleBookmark() {
@@ -121,7 +145,7 @@ class _PostCardState extends State<PostCard> {
 
                     SizedBox(height: detail == true ? 12 : 8),
 
-                    if (post.image != null)
+                    if (post.image != null && post.image!.isNotEmpty)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(

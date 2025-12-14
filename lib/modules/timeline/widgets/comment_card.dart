@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
@@ -39,7 +40,7 @@ class _CommentCardState extends State<CommentCard> {
             ),
             TextButton(
               onPressed: () {
-                // deleteComment(comment.id);
+                deleteComment(widget.comment.id);
                 Navigator.of(context).pop(); // Close dialog
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -57,17 +58,17 @@ class _CommentCardState extends State<CommentCard> {
     );
   }
 
-  // Future<void> deleteComment(int id) async {
-  //   final url = Uri.parse('http://localhost:8000/timeline/api/delete_comment/$id/');
+  Future<void> deleteComment(int id) async {
+    final url = Uri.parse('http://localhost:8000/timeline/api/delete_comment/$id/');
 
-  //   final response = await http.delete(url);
+    final response = await http.delete(url);
 
-  //   if (response.statusCode == 200) {
-  //     print("Deleted successfully");
-  //   } else {
-  //     print("Delete failed: ${response.body}");
-  //   }
-  // }
+    if (response.statusCode == 200) {
+      print("Deleted successfully");
+    } else {
+      print("Delete failed: ${response.body}");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

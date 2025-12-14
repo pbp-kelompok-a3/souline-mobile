@@ -1,8 +1,11 @@
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/attachments.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 
 class PostFormPage extends StatefulWidget {
   final Result? post;
@@ -41,36 +44,33 @@ class _PostFormPageState extends State<PostFormPage> {
     super.dispose();
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // For now, just show success and go back
-      Navigator.pop(context);
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final request = context.read<CookieRequest>();
+        final timelineService = TimelineService(request);
+
+    try {
+      await timelineService.createPost(
+        text: _textController.text,
+        image: _imageController.text.isNotEmpty ? _imageController.text : null,
+        attachment: attachments, 
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context, true); 
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isEditing ? 'Post updated!' : 'Post created!')),
+      );
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditing ? 'Post updated!' : 'Post created!'),
-          backgroundColor: AppColors.darkBlue,
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
         ),
       );
     }
   }
-
-  // Future<void> _submitForm(Post post) async {
-  //   final response = await http.get(Uri.parse('http://localhost:8000/timeline/api/create_post/'));
-
-  //   if (_formKey.currentState!.validate()) {
-  //     if (response.statusCode == 200) {
-  //       Navigator.pop(context);
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(_isEditing ? 'Post updated!' : 'Post created!'),
-  //           backgroundColor: AppColors.darkBlue,
-  //         ),
-  //       ); 
-  //     } else {
-  //       throw Exception('Failed to post');
-  //     }
-  //   }
-  // }
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
