@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
@@ -24,6 +25,8 @@ class _CommentCardState extends State<CommentCard> {
   }
 
   void _showDeleteConfirmation(BuildContext context) {
+    final request = context.read<CookieRequest>();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -39,15 +42,28 @@ class _CommentCardState extends State<CommentCard> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                deleteComment(widget.comment.id);
-                Navigator.of(context).pop(); // Close dialog
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Comment deleted'),
-                    backgroundColor: AppColors.darkBlue,
-                  ),
-                );
+              onPressed: () async {
+                final success = await deleteComment(request, widget.comment.id);
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close dialog
+
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Comment deleted'),
+                        backgroundColor: AppColors.darkBlue,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to delete comment'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Delete'),
@@ -58,15 +74,21 @@ class _CommentCardState extends State<CommentCard> {
     );
   }
 
-  Future<void> deleteComment(int id) async {
-    final url = Uri.parse('http://localhost:8000/timeline/api/delete_comment/$id/');
+  Future<bool> deleteComment(CookieRequest request, int commentId) async {
+    final url = "${AppConstants.baseUrl}timeline/api/comment/$commentId/delete/";
 
-    final response = await http.delete(url);
+    try {
+      final response = await request.postJson(url, null);
 
-    if (response.statusCode == 200) {
-      print("Deleted successfully");
-    } else {
-      print("Delete failed: ${response.body}");
+      if (response['status'] == 'success') {
+        return true;
+      } else {
+        print("Delete failed: ${response['message']}");
+        return false;
+      }
+    } catch (e) {
+      print("Error deleting comment: $e");
+      return false;
     }
   }
 
@@ -116,18 +138,19 @@ class _CommentCardState extends State<CommentCard> {
                       ),
 
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         IconButton(
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints(),
-                          icon: const Icon(Icons.edit, size: 20, color: AppColors.textMuted),
+                          icon: const Icon(Icons.edit, size: 16, color: AppColors.textMuted),
                           onPressed: () => _navigateToEdit(context),
                         ),
+                        SizedBox(width: 8),
                         IconButton(
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints(),
-                          icon: const Icon(Icons.delete, size: 20, color: AppColors.textMuted),
+                          icon: const Icon(Icons.delete, size: 16, color: AppColors.textMuted),
                           onPressed: () => _showDeleteConfirmation(context),
                         ),
                       ]

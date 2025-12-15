@@ -1,9 +1,5 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/http.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
@@ -30,7 +26,6 @@ class _CommentFormPageState extends State<CommentFormPage> {
   void initState() {
     super.initState();
 
-    // Initialize controllers with existing values if editing
     _contentController = TextEditingController(
       text: widget.comment?.content ?? '',
     );
@@ -42,44 +37,47 @@ class _CommentFormPageState extends State<CommentFormPage> {
     super.dispose();
   }
 
-  // void _submitForm() {
-  //   if (_formKey.currentState!.validate()) {
-  //     // For now, just show success and go back
-  //     Navigator.pop(context);
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(_isEditing ? 'Comment updated!' : 'Comment posted!'),
-  //         backgroundColor: AppColors.darkBlue,
-  //       ),
-  //     );
-  //   }
-  // }
-
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
     final request = context.read<CookieRequest>();
 
     try {
-      final response = await request.postJson(
-        "http://10.0.2.2:8000/timeline/api/${widget.post.id}/comment",
-        jsonEncode({
-          'content': _contentController.text,
-        }),
-      );
+      dynamic response;
 
-      if (response['status'] == 'success') { 
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Comment added successfully!")),
+      if (_isEditing) {
+        response = await request.postJson(
+          "${AppConstants.baseUrl}timeline/api/comment/${widget.comment!.id}/edit/",
+          jsonEncode({
+            'content': _contentController.text,
+          }),
         );
       } else {
+        response = await request.postJson(
+          "${AppConstants.baseUrl}timeline/api/${widget.post.id}/comment/",
+          jsonEncode({
+            'content': _contentController.text,
+          }),
+        );
+      }
+
+      if (response['status'] == 'success') { 
+        if (!mounted) return;
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to add comment.")),
+          SnackBar(content: Text(_isEditing ? "Comment updated!" : "Comment added!")),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? "Failed to save comment.")),
         );
       }
     } catch (e) {
       print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error occurred: $e")),
+      );
     }
   }
 
@@ -107,7 +105,7 @@ class _CommentFormPageState extends State<CommentFormPage> {
               _submitForm();
             },    
             child: Text(
-              'Reply',
+              _isEditing ? 'Save' : 'Reply',
               style: TextStyle(
                 color: AppColors.textLight,
                 fontSize: 14,
@@ -127,7 +125,9 @@ class _CommentFormPageState extends State<CommentFormPage> {
             Padding(
               padding: EdgeInsets.only(left: 8),
               child: Text(
-                'Replying to ${widget.post.authorUsername}',
+                _isEditing 
+                  ? 'Editing your reply to ${widget.post.authorUsername}' 
+                  : 'Replying to ${widget.post.authorUsername}',
                 style: TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 13,

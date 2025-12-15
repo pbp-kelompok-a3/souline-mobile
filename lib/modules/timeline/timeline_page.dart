@@ -205,7 +205,11 @@ class TimelinePageState extends State<TimelinePage> {
                 ),
               
               Expanded(
-                child: _filteredPosts.isEmpty
+                child: _loading 
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : _filteredPosts.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
