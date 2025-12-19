@@ -1,8 +1,15 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'post_model.dart';
-
+import 'package:intl/intl.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/modules/timeline/attachments.dart';
+import 'package:souline_mobile/modules/timeline/post_detail.dart';
+import 'package:souline_mobile/modules/timeline/post_form.dart';
+import 'package:souline_mobile/modules/timeline/widgets/post_card.dart';
+import 'package:souline_mobile/shared/models/sportswear_model.dart';
+import 'package:souline_mobile/shared/widgets/app_header.dart';
+import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
+import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class TimelinePage extends StatefulWidget {
   const TimelinePage({super.key});
@@ -12,360 +19,288 @@ class TimelinePage extends StatefulWidget {
 }
 
 class TimelinePageState extends State<TimelinePage> {
-  final List<Post> _posts = [];
-  bool _loading = false;
-  bool _hasMore = true;
-  int _page = 1;
-  // final int _pageSize = 10;
-  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  // List<Result> _posts = [];
+  final bool _loading = true;
 
-  // If your API requires auth, set token here (example)
-  // final String? _authToken = null; // 'Bearer ey...'
+  String _sortBy = 'latest';
+  String _searchQuery = '';
+  bool _isFilterVisible = false;
+  
+  // Future<Post> fetchPosts() async {
+  //   final response = await http.get(Uri.parse('http://localhost:8000/timeline/api/timeline/'));
+
+  //   if (response.statusCode == 200) {
+  //     return postFromJson(response.body); 
+  //   } else {
+  //     throw Exception('Failed to load posts');
+  //   }
+  // }
+
+  // Mock data for UI development
+  final List<Result> _posts = [
+    Result(id: 1, authorUsername: 'user1', text: 'Hello world!', likeCount: 5, commentCount: 2, likedByUser: false, 
+      image: 'https://www.windowslatest.com/wp-content/uploads/2024/10/Windows-XP-4K-modified.jpg', 
+      comments: [
+        Comment(id: 1, postId: 1, authorUsername: 'user2', content: 'content', createdAt: DateTime.now()),
+        Comment(id: 1, postId: 1, authorUsername: 'user3', content: 'nostalgia', createdAt: DateTime.now()),
+      ],
+      created_at: DateTime.now()
+      ),
+    Result(id: 2, authorUsername: 'user2', text: 'This is a sample post.', likeCount: 3, commentCount: 1, likedByUser: true, comments: [Comment(id: 1, postId: 2, authorUsername: 'user1', content: 'komen', createdAt: DateTime.now())], created_at: DateTime.now()),
+    Result(id: 3, authorUsername: 'user3', text: 'madame morrible flip it around wicked witchhhh bduiwiawhdeiuhduhdeyqj', likeCount: 10, commentCount: 0, likedByUser: false, comments: [], created_at: DateTime.now(),
+      attachment: {
+      "id": 1,
+      "name": "Lululemon",
+      "description": "description",
+      "tag": "Sportswear",
+      "thumbnail":
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAG1UDEIZtYdGiU3wGWfNJc2nHYp_xnthZRw&s",
+      "rating": 4,
+      "link": "https://shop.lululemon.com/",
+      "timelineReviews": [],
+    },),
+  ];
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _load();
+  // }
+
+  // Future<void> _load() async {
+  //   final data = await fetchPosts();
+  //   setState(() {
+  //     _posts = data.results;   // real list
+  //     _loading = false;
+  //   });
+  // }
+
+  List<Result> get _filteredPosts {
+    if (_searchQuery.isNotEmpty) {
+      return _posts.where(
+            (p) => p.text.toLowerCase().contains(_searchQuery.toLowerCase()),
+          ).toList();
+    }
+    if (_sortBy == 'latest') {
+      final sorted = List<Result>.from(_posts);
+      sorted.sort((a, b) => b.id.compareTo(a.id));
+      return sorted;
+    }
+    if (_sortBy == 'popular') {
+      final sorted = List<Result>.from(_posts);
+      sorted.sort((a, b) => b.likeCount.compareTo(a.likeCount));
+      return sorted;
+    }
+    return _posts;
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value;
+    });
+  }
+
+  void _onSortChanged(String filter) {
+    setState(() {
+      _sortBy = filter;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
+  void _toggleFilter() { 
+    setState(() { 
+      _isFilterVisible = !_isFilterVisible; 
+    });
+  }
+
+  Widget _filterButton({required String label, required bool selected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.lightBlue : AppColors.cream,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.lightBlue,
+          )
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: selected ? AppColors.darkBlue : AppColors.lightBlue,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _fetchPage();
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 && !_loading && _hasMore) {
-        _fetchPage();
-      }
-    });
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  Future<void> _refresh() async {
-    setState(() {
-      _posts.clear();
-      _page = 1;
-      _hasMore = true;
-    });
-    await _fetchPage();
-  }
+  @override
+  Widget build(BuildContext context) {
+    final isSearching = _searchQuery.isNotEmpty;
 
-  Future<void> _fetchPage() async {
-    if (_loading || !_hasMore) return;
-
-    setState(() => _loading = true);
-
-    final uri = Uri.parse('http://localhost:8000/timeline/api/timeline/?page=$_page');
-    final response = await http.get(uri);
-
-    if (response.statusCode == 200) {
-      final body = json.decode(response.body);
-      List items = body['results'] ?? [];
-
-      final fetched = items.map((e) => Post.fromJson(e)).toList();
-
-      setState(() {
-        _posts.addAll(fetched);
-        _page++;
-        _hasMore = body['next'] != null;
-      });
-    } else {
-      debugPrint("Timeline error: ${response.statusCode}");
-    }
-
-    setState(() => _loading = false);
-  }
-
-
-  Future<void> _toggleLike(Post post) async {
-    final uri = Uri.parse('http://localhost:8000/timeline/api/post/${post.id}/like/');
-    final headers = <String, String>{};
-    // if (_authToken != null) headers['Authorization'] = _authToken!;
-
-    final response = await http.post(uri, headers: headers);
-    if (response.statusCode == 200) {
-      final jsonBody = json.decode(response.body);
-      setState(() {
-        post.likedByUser = jsonBody['liked'] ?? !post.likedByUser;
-        post.likeCount = jsonBody['like_count'] ?? post.likeCount + (post.likedByUser ? 1 : -1);
-      });
-    } else if (response.statusCode == 401) {
-    // not authorized: show login
-    }
-  }
-
-
-  Future<List<Map<String, dynamic>>> _fetchComments(int postId) async {
-    final uri = Uri.parse('http://localhost:8000/timeline/api/post/$postId/comments/');
-    final headers = {'Content-Type': 'application/json'};
-    // if (_authToken != null) headers['Authorization'] = _authToken!;
-
-    final res = await http.get(uri, headers: headers);
-    if (res.statusCode == 200) return List<Map<String, dynamic>>.from(json.decode(res.body));
-    return [];
-  }
-
-  Future<bool> _addComment(int postId, String content) async {
-    final uri = Uri.parse('http://localhost:8000/timeline/api/post/$postId/comment/');
-    final headers = {'Content-Type': 'application/json'};
-    // if (_authToken != null) headers['Authorization'] = _authToken!;
-
-    final res = await http.post(uri, headers: headers, body: json.encode({'content': content}));
-    if (res.statusCode == 201) return true;
-    return false;
-    }
-
-    @override
-    void dispose() {
-      _scrollController.dispose();
-      super.dispose();
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return Scaffold(
-        backgroundColor: const Color(0xfff9f4e8),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/create_post');
-          },
-          backgroundColor: const Color(0xff8ecae6),
-          child: const Icon(Icons.add),
-        ),
-        body: Column(
-          children: [
-            _header(),
-            Expanded(
-              child: RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                itemCount: _posts.length + (_hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= _posts.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  final post = _posts[index];
-                  return _postCard(post);
-                },
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _header() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xff5e7fa3), Color(0xff8ecae6)],
-        ),
-      ),
-      child: Column(
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFFFFFBF0)),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+              AppHeader(
+                title: 'Timeline',
+                onSearchChanged: _onSearchChanged,
+                onFilterPressed: _toggleFilter
               ),
-              const Text('Timeline',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 28,
-                  color: Color(0xFFFFFBF0),
-                  fontWeight: FontWeight.bold)),
-            ],
-          ),  
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                  hintText: 'Search',
-                  hintStyle: const TextStyle(fontFamily: 'Poppins'),
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xffbde0fe), shape: BoxShape.rectangle, borderRadius: BorderRadius.all(Radius.circular(12))),
-                child: const IconButton(
-                  icon: Icon(Icons.tune, color: Color(0xFFFFFBF0)),
-                  onPressed: null,
-                ),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
 
-  Widget _postCard(Post post) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(context, '/profile', arguments: post.username);
-              },
-              child: Row(
+            if (_isFilterVisible)
+              Stack(
+                alignment: AlignmentGeometry.center,
                 children: [
-                  const CircleAvatar(backgroundColor: Colors.grey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(post.username, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 2),
-                        const Text('Lokasi', style: TextStyle(fontFamily: 'Poppins', color: Colors.grey, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      post.likedByUser ? Icons.favorite : Icons.favorite_border,
-                      color: post.likedByUser ? Colors.red : Colors.grey,
-                    ),
-                    onPressed: () => _toggleLike(post),
-                  ),
-                  Text('${post.likeCount}', style: const TextStyle(fontFamily: 'Poppins')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(post.text, style: const TextStyle(fontFamily: 'Poppins')),
-            const SizedBox(height: 10),
-            if (post.image != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(post.image!, fit: BoxFit.cover),
-              ),
-            if (post.resourceTitle != null) _resourceCard(post),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.comment_outlined),
-                  onPressed: () => _openComments(post),
-                ),
-                Text('${post.commentCount}', style: const TextStyle(fontFamily: 'Poppins')),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _openComments(post),
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text('Comments', style: TextStyle(fontFamily: 'Poppins')),
-                )
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _resourceCard(Post post) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, '/resource', arguments: post.resourceTitle);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xfff1f1f1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            if (post.resourceThumbnail != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(post.resourceThumbnail!, width: 90, height: 60, fit: BoxFit.cover),
-              ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(post.resourceTitle ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openComments(Post post) async {
-    final comments = await _fetchComments(post.id);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        final TextEditingController controller = TextEditingController();
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: comments.length,
-                    itemBuilder: (context, i) {
-                      final c = comments[i];
-                      return ListTile(
-                        leading: const CircleAvatar(backgroundColor: Colors.grey),
-                        title: Text(c['author_username'] ?? 'user'),
-                        subtitle: Text(c['content'] ?? ''),
-                      );
-                    },
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        decoration: const InputDecoration(hintText: 'Write a comment'),
+                  Container(
+                    margin: EdgeInsets.fromLTRB(12, 30, 12, 0),
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: AppColors.cream,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Text(
+                            'Sort By',
+                            style: TextStyle(
+                              color: AppColors.darkBlue,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          _filterButton(
+                            label: "Latest",
+                            selected: _sortBy == "latest",
+                            onTap: () {
+                              _onSortChanged("latest");
+                            },
+                          ),
+                          _filterButton(
+                            label: "Popular",
+                            selected: _sortBy == "popular",
+                            onTap: () {
+                              _onSortChanged("popular");
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: () async {
-                        final content = controller.text.trim();
-                        if (content.isEmpty) return;
-                        final ok = await _addComment(post.id, content);
-                        if (ok) {
-                          Navigator.pop(context);
-                          setState(() => post.commentCount + 1);
-                        } else {
-                        // show error
-                        }
-                      },
-                    )
-                  ],
-                )
-              ],
-            ),
+                  ),
+                ]
+              ),
+
+              SizedBox(height: 30),
+
+              if (isSearching)
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    'Found ${_filteredPosts.length} post${_filteredPosts.length != 1 ? 's' : ''} for "$_searchQuery"',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 14,
+                      color: AppColors.textMuted,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              
+              Expanded(
+                child: _filteredPosts.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isSearching ? Icons.search_off : Icons.timeline,
+                              size: 64,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              isSearching ? 'No posts found for "$_searchQuery"' : 'No posts available',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 16,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(top: 8, bottom: 100),
+                        itemCount: _filteredPosts.length,
+                        itemBuilder: (context, index) {
+                          final post = _filteredPosts[index];
+                          return PostCard(
+                            post: post,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => PostDetailPage(post: post)),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        );
-      },
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: FloatingNavigationBar(currentIndex: 4),
+          ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: 80),
+        child: FloatingActionButton(
+          backgroundColor: AppColors.orange,
+          shape: const CircleBorder(),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const PostFormPage()),
+            );
+          },
+          child: const Icon(
+            Icons.add,
+            color: AppColors.cream,
+            size: 32,
+          ),
+        ),
+      ),
     );
   }
 }

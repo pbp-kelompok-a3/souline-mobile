@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
+import 'studio_service.dart';
 
 class StudioFormPage extends StatefulWidget {
   final Studio? studio; // null for create, non-null for edit
@@ -23,6 +26,7 @@ class _StudioFormPageState extends State<StudioFormPage> {
 
   UserKota _selectedKota = UserKota.JAKARTA;
   double _rating = 5.0; // Default rating
+  bool _submitting = false;
 
   bool get _isEditing => widget.studio != null;
 
@@ -65,13 +69,47 @@ class _StudioFormPageState extends State<StudioFormPage> {
     super.dispose();
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement API call for create/edit
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // For now, just show success and go back
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+    setState(() {
+      _submitting = true;
+    });
+
+    final scaffold = ScaffoldMessenger.of(context);
+
+    try {
+      final request = context.read<CookieRequest>();
+      final service = StudioService(request);
+
+      if (_isEditing) {
+        await service.updateStudio(
+          id: widget.studio!.id,
+          namaStudio: _namaController.text,
+          thumbnail: _thumbnailController.text,
+          kota: _selectedKota,
+          area: _areaController.text,
+          alamat: _alamatController.text,
+          gmapsLink: _gmapsController.text,
+          nomorTelepon: _teleponController.text,
+          rating: _rating,
+        );
+      } else {
+        await service.createStudio(
+          namaStudio: _namaController.text,
+          thumbnail: _thumbnailController.text,
+          kota: _selectedKota,
+          area: _areaController.text,
+          alamat: _alamatController.text,
+          gmapsLink: _gmapsController.text,
+          nomorTelepon: _teleponController.text,
+          rating: _rating,
+        );
+      }
+
+      if (mounted) Navigator.pop(context, true);
+
+      scaffold.showSnackBar(
         SnackBar(
           content: Text(
             _isEditing
@@ -81,6 +119,19 @@ class _StudioFormPageState extends State<StudioFormPage> {
           backgroundColor: AppColors.darkBlue,
         ),
       );
+    } catch (e) {
+      scaffold.showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
     }
   }
 
@@ -145,7 +196,7 @@ class _StudioFormPageState extends State<StudioFormPage> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
-                    _thumbnailController.text,
+                    proxiedImageUrl(_thumbnailController.text),
                     height: 150,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -188,7 +239,7 @@ class _StudioFormPageState extends State<StudioFormPage> {
                   border: Border.all(color: AppColors.teal.withOpacity(0.3)),
                 ),
                 child: DropdownButtonFormField<UserKota>(
-                  value: _selectedKota,
+                  initialValue: _selectedKota,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(
                       Icons.location_city,
@@ -404,7 +455,7 @@ class _StudioFormPageState extends State<StudioFormPage> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _submitForm,
+                  onPressed: _submitting ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.orange,
                     foregroundColor: Colors.white,
@@ -413,7 +464,11 @@ class _StudioFormPageState extends State<StudioFormPage> {
                     ),
                   ),
                   child: Text(
-                    _isEditing ? 'Update Studio' : 'Create Studio',
+                    _submitting
+                        ? 'Submitting...'
+                        : _isEditing
+                        ? 'Update Studio'
+                        : 'Create Studio',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

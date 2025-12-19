@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
-import 'modules/timeline/timeline_page.dart';
-import 'modules/timeline/create_post.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 
