@@ -25,6 +25,8 @@ import 'modules/studio/studio_service.dart';
 import 'modules/studio/studio_detail_page.dart';
 import 'modules/sportswear/sportswear_page.dart';
 import 'modules/resources/resources_page.dart';
+import 'modules/user/user_page.dart';
+import 'modules/user/login.dart';
 import 'modules/timeline/timeline_page.dart';
 import 'modules/timeline/post_detail.dart';
 import 'modules/events/events_page.dart';
@@ -38,6 +40,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // User section state
+  String? _username;
+  bool _isLoadingUser = true;
+
   // Studio section state
   UserKota? _selectedCity; // null until loaded from API
   List<Studio> _studios = [];
@@ -61,9 +67,72 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _checkLoginStatus();
     _loadMockData();
     _loadStudios();
     _loadEvents();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final request = context.read<CookieRequest>();
+    
+    if (request.loggedIn) {
+      try {
+        final response = await request.get(
+          'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/users/get-profile-flutter/',
+        );
+        
+        if (response['status'] == true) {
+          setState(() {
+            _username = response['username'];
+            _isLoadingUser = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingUser = false;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _isLoadingUser = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  Future<void> _logout() async {
+    final request = context.read<CookieRequest>();
+    
+    try {
+      final response = await request.logout(
+        'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/auth/logout/',
+      );
+      
+      if (mounted) {
+        setState(() {
+          _username = null;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Logged out')),
+        );
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error logging out: $e')),
+        );
+      }
+    }
   }
 
   /// Load studios from API
@@ -322,7 +391,87 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final request = context.watch<CookieRequest>();
+    
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Souline'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        centerTitle: true,
+        actions: [
+          if (_isLoadingUser)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (request.loggedIn && _username != null)
+            PopupMenuButton<String>(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Hello, $_username',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
+              onSelected: (value) {
+                if (value == 'profile') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserPage()),
+                  ).then((_) => _checkLoginStatus());
+                } else if (value == 'logout') {
+                  _logout();
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person, size: 20),
+                      SizedBox(width: 8),
+                      Text('Profile'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20),
+                      SizedBox(width: 8),
+                      Text('Logout'),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            TextButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                ).then((_) => _checkLoginStatus());
+              },
+              icon: const Icon(Icons.login),
+              label: const Text('Login'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.black87,
+              ),
+            ),
+        ],
+      ),
       backgroundColor: AppColors.cream,
       drawer: const LeftDrawer(),
       body: Stack(

@@ -26,6 +26,11 @@ class SoulineApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'Poppins',
         ),
+        routes: {
+          '/timeline': (context) => TimelinePage(),
+          '/create_post': (context) => CreatePostPage(),
+          // '/profile': (context) => ProfilePage(),
+        },
       ),
     );
   }
