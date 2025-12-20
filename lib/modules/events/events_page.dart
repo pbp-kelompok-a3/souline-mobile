@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:http/http.dart' as http; 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:souline_mobile/shared/widgets/left_drawer.dart';
-
 import '../../core/constants/app_constants.dart';
+import '../../shared/widgets/left_drawer.dart';
 import '../../shared/widgets/navigation_bar.dart';
+import '../../shared/widgets/app_header.dart';
 import '../../shared/models/event_model.dart';
 import 'events_detail.dart';
 import 'add_events.dart';
 import 'widgets/events_card.dart';
 import 'widgets/events_filter.dart';
-import '../../shared/widgets/app_header.dart';
+import 'events_service.dart';
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
@@ -39,14 +39,9 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Future<void> _loadAuthInfo() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      currentUsername = prefs.getString('username') ?? '';
-      authToken = prefs.getString('auth_token') ?? '';
-    } catch (_) {
-      currentUsername = '';
-      authToken = '';
-    }
+    final prefs = await SharedPreferences.getInstance();
+    currentUsername = prefs.getString('username') ?? '';
+    authToken = prefs.getString('auth_token') ?? '';
   }
 
   String joinBase(String path) {
@@ -62,13 +57,7 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Future<List<EventModel>> fetchEvents() async {
-    String url = joinBase('events/json/');
-    if (selectedDateFilter == 'soon') {
-      url = joinBase('events/json/soon/');
-    } else if (selectedDateFilter == 'later') {
-      url = joinBase('events/json/later/');
-    }
-
+    final url = joinBase('events/json/');
     final headers = <String, String>{'Content-Type': 'application/json'};
     if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
 
@@ -88,14 +77,8 @@ class _EventsPageState extends State<EventsPage> {
         title: const Text('Delete event?'),
         content: const Text('Are you sure you want to delete this event?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Delete'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -107,14 +90,14 @@ class _EventsPageState extends State<EventsPage> {
 
     final resp = await http.delete(Uri.parse(url), headers: headers);
     if (resp.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Event deleted')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event deleted')));
       setState(() {
         futureEvents = fetchEvents();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: ${resp.statusCode}')));
+        SnackBar(content: Text('Delete failed: ${resp.statusCode}')),
+      );
     }
   }
 
@@ -133,8 +116,7 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final headerLocationLabel =
-        selectedCity.isEmpty ? 'All Locations' : selectedCity;
+    final headerLocationLabel = selectedCity.isEmpty ? 'All Locations' : selectedCity;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -144,16 +126,13 @@ class _EventsPageState extends State<EventsPage> {
           Column(
             children: [
               AppHeader(
-                title: 'Event',
-                onSearchChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
+                title: 'Events',
+                onSearchChanged: (value) => setState(() => _searchQuery = value),
                 onFilterPressed: _toggleFilter,
                 showDrawerButton: true,
               ),
               const SizedBox(height: 40),
+              // location label
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
@@ -163,67 +142,47 @@ class _EventsPageState extends State<EventsPage> {
                       const Text('📍 ', style: TextStyle(fontSize: 20)),
                       Text(
                         headerLocationLabel,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(width: 8),
                       if (selectedCity.isNotEmpty)
                         TextButton(
                           onPressed: () => _applyFilter('', 'all'),
-                          child: const Text(
-                            'Clear',
-                            style: TextStyle(color: AppColors.darkBlue),
-                          ),
+                          child: const Text('Clear', style: TextStyle(color: AppColors.darkBlue)),
                         ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 12),
+              // list area
               Expanded(
                 child: FutureBuilder<List<EventModel>>(
                   future: futureEvents,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                          child: CircularProgressIndicator());
+                      return const Center(child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
                       return Center(child: Text('Error: ${snapshot.error}'));
                     }
-
                     final allEvents = snapshot.data ?? [];
                     final visibleEvents = allEvents.where((e) {
-                      final matchesCity = selectedCity.isEmpty ||
-                          e.location.toLowerCase().contains(
-                                selectedCity.toLowerCase(),
-                              );
-                      final matchesSearch = _searchQuery.isEmpty ||
-                          e.name.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              ) ||
-                          e.location.toLowerCase().contains(
-                                _searchQuery.toLowerCase(),
-                              );
+                      final matchesCity = selectedCity.isEmpty || e.location.toLowerCase().contains(selectedCity.toLowerCase());
+                      final matchesSearch = _searchQuery.isEmpty || e.name.toLowerCase().contains(_searchQuery.toLowerCase()) || e.location.toLowerCase().contains(_searchQuery.toLowerCase());
                       return matchesCity && matchesSearch;
                     }).toList();
 
                     if (visibleEvents.isEmpty) {
-                      return const Center(
-                          child: Text('No upcoming events yet.'));
+                      return const Center(child: Text('No upcoming events yet.'));
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.only(
-                          bottom: 120, left: 16, right: 16, top: 8),
+                      padding: const EdgeInsets.only(bottom: 120, left: 16, right: 16, top: 8),
                       itemCount: visibleEvents.length,
                       itemBuilder: (context, index) {
                         final event = visibleEvents[index];
-                        final isOwner = currentUsername.isNotEmpty &&
-                            currentUsername == event.createdBy;
-
+                        final isOwner = currentUsername.isNotEmpty && currentUsername == event.createdBy;
                         return EventCard(
                           event: event,
                           posterUrl: buildPosterUrl(event.poster),
@@ -233,27 +192,22 @@ class _EventsPageState extends State<EventsPage> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => EventDetailPage(
-                                    event: event,
-                                    baseUrl: AppConstants.baseUrl,
-                                    currentUsername: currentUsername),
+                                  event: event,
+                                  baseUrl: AppConstants.baseUrl,
+                                  currentUsername: currentUsername,
+                                ),
                               ),
-                            ).then((_) =>
-                                setState(() => futureEvents = fetchEvents()));
+                            ).then((_) => setState(() => futureEvents = fetchEvents()));
                           },
                           onEdit: isOwner
                               ? () {
                                   Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) =>
-                                              AddEventPage(editEvent: event)))
-                                      .then((_) =>
-                                          setState(() => futureEvents = fetchEvents()));
+                                    context,
+                                    MaterialPageRoute(builder: (_) => AddEventPage(editEvent: event)),
+                                  ).then((_) => setState(() => futureEvents = fetchEvents()));
                                 }
                               : null,
-                          onDelete: isOwner
-                              ? () => _deleteEvent(event.id)
-                              : null,
+                          onDelete: isOwner ? () => _deleteEvent(event.id) : null,
                         );
                       },
                     );
@@ -273,16 +227,14 @@ class _EventsPageState extends State<EventsPage> {
                 child: EventFilter(onApply: _applyFilter),
               ),
             ),
-          const Positioned(
-              left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
+          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
         ],
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80), 
+        padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton(
           backgroundColor: AppColors.orange,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: AppColors.cream, size: 32),
+          child: const Icon(Icons.add, color: Colors.white),
           onPressed: () {
             Navigator.push(
               context,
