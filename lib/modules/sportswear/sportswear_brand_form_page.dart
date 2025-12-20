@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sportswear_page.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 
 class SportswearBrandFormPage extends StatefulWidget {
   final Product? brand;
@@ -15,20 +16,23 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
   final _formKey = GlobalKey<FormState>();
   final SportswearService _service = SportswearService();
 
-  static const Color primaryBrandColor = Color(0xFF5E8096);
-  static const Color accentColor = Color(0xFF90B4C8);
-  static const Color ratingColor = Color(0xFFFFCC00);
+  // Menggunakan AppColors dari constants
+  static const Color myBackgroundColor = AppColors.background;
+  static const Color primaryBrandColor = AppColors.darkBlue;
+  static const Color accentColor = AppColors.teal;
+  static const Color ratingColor = AppColors.orange;
 
   late TextEditingController _nameController;
-  late TextEditingController _tagController;
   late TextEditingController _descriptionController;
   late TextEditingController _thumbnailController;
   late TextEditingController _linkController;
 
+  String? _selectedTag;
+  final List<String> _categories = ['Yoga', 'Pilates'];
+
   double _rating = 5.0;
   bool get _isEditing => widget.brand != null;
   bool _isLoading = false;
-
 
   @override
   void initState() {
@@ -36,10 +40,12 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
 
     _nameController = TextEditingController(text: widget.brand?.name ?? '');
     _descriptionController = TextEditingController(text: widget.brand?.description ?? '');
-    _tagController = TextEditingController(text: widget.brand?.tag ?? 'Yoga');
     _thumbnailController = TextEditingController(text: widget.brand?.thumbnail ?? '');
-    _linkController = TextEditingController(text: widget.brand?.link ?? 'https://example.com');
+    _linkController = TextEditingController(text: widget.brand?.link ?? '');
 
+    if (widget.brand != null && _categories.contains(widget.brand!.tag)) {
+      _selectedTag = widget.brand!.tag;
+    }
 
     if (widget.brand != null) {
       _rating = widget.brand!.rating;
@@ -50,7 +56,6 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _tagController.dispose();
     _thumbnailController.dispose();
     _linkController.dispose();
     super.dispose();
@@ -64,7 +69,7 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
         id: widget.brand?.id ?? 0,
         name: _nameController.text,
         description: _descriptionController.text,
-        tag: _tagController.text,
+        tag: _selectedTag ?? '',
         thumbnail: _thumbnailController.text,
         rating: _rating,
         link: _linkController.text,
@@ -83,7 +88,7 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(_isEditing ? 'Brand updated successfully!' : 'New Brand created successfully!'),
+              content: Text(_isEditing ? 'Brand updated successfully!' : 'Brand added successfully!'),
               backgroundColor: primaryBrandColor,
             ),
           );
@@ -108,7 +113,7 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: myBackgroundColor,
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Brand' : 'Add New Brand', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: primaryBrandColor,
@@ -122,15 +127,15 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionLabel('Brand Name'),
-              _buildTextField(controller: _nameController, hintText: 'Enter brand name (e.g., HappyFit)', prefixIcon: Icons.local_offer,
+              _buildTextField(controller: _nameController, hintText: 'Enter brand name', prefixIcon: Icons.local_offer,
                 validator: (value) => value == null || value.isEmpty ? 'Please enter brand name' : null,
               ),
               const SizedBox(height: 20),
 
               _buildSectionLabel('Logo URL'),
-              _buildTextField(controller: _thumbnailController, hintText: 'Enter brand logo image URL', prefixIcon: Icons.image, keyboardType: TextInputType.url,
+              _buildTextField(controller: _thumbnailController, hintText: 'Enter logo image URL', prefixIcon: Icons.image, keyboardType: TextInputType.url,
                 validator: (value) {
-                  if (value == null || value.isEmpty) { return 'Please enter image URL'; }
+                  if (value == null || value.isEmpty) { return 'Please enter logo image URL'; }
                   if (Uri.tryParse(value)?.isAbsolute != true) { return 'Please enter a valid URL'; }
                   return null;
                 },
@@ -150,10 +155,10 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
               ],
               const SizedBox(height: 20),
 
-              _buildSectionLabel('E-Commerce Link'),
-              _buildTextField(controller: _linkController, hintText: 'Enter shop link', prefixIcon: Icons.link, keyboardType: TextInputType.url,
+              _buildSectionLabel('Official Store URL'),
+              _buildTextField(controller: _linkController, hintText: 'Enter official store or website URL', prefixIcon: Icons.link, keyboardType: TextInputType.url,
                 validator: (value) {
-                  if (value == null || value.isEmpty) { return 'Please enter a link'; }
+                  if (value == null || value.isEmpty) { return 'Please enter the official store URL'; }
                   if (Uri.tryParse(value)?.isAbsolute != true) { return 'Please enter a valid URL'; }
                   return null;
                 },
@@ -161,18 +166,48 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
               const SizedBox(height: 20),
 
               _buildSectionLabel('Category Tag'),
-              _buildTextField(controller: _tagController, hintText: 'e.g., Yoga, Pilates, Running', prefixIcon: Icons.category,
-                validator: (value) => value == null || value.isEmpty ? 'Please enter category tag' : null,
+              DropdownButtonFormField<String>(
+                value: _selectedTag,
+                isExpanded: true,
+                items: _categories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category, style: const TextStyle(fontSize: 14)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedTag = value;
+                  });
+                },
+                validator: (value) => value == null ? 'Please select a category' : null,
+                decoration: InputDecoration(
+                  hintText: 'Select category',
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                  prefixIcon: const Icon(Icons.category, color: primaryBrandColor),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: accentColor.withOpacity(0.3))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: accentColor.withOpacity(0.3))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryBrandColor, width: 2)),
+                  errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red)),
+                  focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red, width: 2)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                dropdownColor: Colors.white,
+                iconEnabledColor: primaryBrandColor,
+                menuMaxHeight: 200,
+                borderRadius: BorderRadius.circular(12),
               ),
               const SizedBox(height: 20),
 
               _buildSectionLabel('Short Description'),
-              _buildTextField(controller: _descriptionController, hintText: 'Comfortable, Premium, Durable, etc.', prefixIcon: Icons.description, maxLines: 2,
+              _buildTextField(controller: _descriptionController, hintText: 'Enter description', prefixIcon: Icons.description, maxLines: 2,
                 validator: (value) => value == null || value.isEmpty ? 'Please enter description' : null,
               ),
               const SizedBox(height: 20),
 
-              _buildSectionLabel('Initial Rating'),
+              _buildSectionLabel('Rating'),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryBrandColor.withOpacity(0.3))),
@@ -221,7 +256,7 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
                   onPressed: _isLoading ? null : _submitForm,
                   style: ElevatedButton.styleFrom(backgroundColor: primaryBrandColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   child: _isLoading ? const CircularProgressIndicator(color: Colors.white) :
-                                      Text(_isEditing ? 'Update Brand' : 'Create Brand', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                      Text(_isEditing ? 'Update Brand' : 'Add New Brand', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 16),
