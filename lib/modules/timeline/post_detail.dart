@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/timeline/post_form.dart';
 import 'package:souline_mobile/modules/timeline/widgets/comment_card.dart';
@@ -17,17 +18,17 @@ class PostDetailPage extends StatelessWidget {
     );
   }
 
-  // Future<void> deletePost(int id) async {
-  //   final url = Uri.parse('http://localhost:8000/timeline/api/delete_post/$id/');
+  Future<void> deletePost(int id) async {
+    final url = Uri.parse('http://localhost:8000/timeline/api/delete_post/$id/');
 
-  //   final response = await http.delete(url);
+    final response = await http.delete(url);
 
-  //   if (response.statusCode == 200) {
-  //     print("Deleted successfully");
-  //   } else {
-  //     print("Delete failed: ${response.body}");
-  //   }
-  // }
+    if (response.statusCode == 200) {
+      print("Deleted successfully");
+    } else {
+      print("Delete failed: ${response.body}");
+    }
+  }
 
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
@@ -46,7 +47,7 @@ class PostDetailPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                // deletePost(post.id);
+                deletePost(post.id);
                 Navigator.of(context).pop(); // Close dialog
                 Navigator.of(context).pop(); // Go back to list
                 ScaffoldMessenger.of(context).showSnackBar(
