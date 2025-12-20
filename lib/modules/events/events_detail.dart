@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
-import 'events_page.dart';
+import '../../shared/models/event_model.dart';
 import 'add_events.dart'; // <-- tambahkan import ini
 
 class EventDetailPage extends StatefulWidget {

@@ -1,61 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/navigation_bar.dart';
+import '../../shared/models/event_model.dart';
 import 'events_detail.dart';
 import 'add_events.dart';
 import 'widgets/events_card.dart';
 import 'widgets/events_filter.dart';
-
-class EventModel {
-  final int id;
-  final String name;
-  final DateTime date;
-  final String description;
-  final String poster;
-  final String location;
-  final String createdBy;
-
-  EventModel({
-    required this.id,
-    required this.name,
-    required this.date,
-    required this.description,
-    required this.poster,
-    required this.location,
-    required this.createdBy,
-  });
-
-  factory EventModel.fromJson(Map<String, dynamic> json) {
-    final dateRaw = json['date'] ?? '';
-    DateTime parsed = DateTime.tryParse(dateRaw) ?? DateTime.now();
-    if (!dateRaw.contains('-')) {
-      try {
-        parsed = DateFormat("dd MMMM yyyy").parse(dateRaw);
-      } catch (_) {
-        try {
-          parsed = DateFormat("dd MMM yyyy").parse(dateRaw);
-        } catch (_) {
-          parsed = DateTime.now();
-        }
-      }
-    }
-
-    return EventModel(
-      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
-      name: json['name'] ?? '',
-      date: parsed,
-      description: json['description'] ?? '',
-      poster: json['poster'] ?? '',
-      location: json['location'] ?? '',
-      createdBy: json['created_by'] ?? '',
-    );
-  }
-}
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
@@ -314,7 +268,7 @@ class _EventsPageState extends State<EventsPage> {
           if (isFilterVisible)
             Positioned(top: 180, left: 20, right: 20, child: Material(elevation: 6, borderRadius: BorderRadius.circular(16), child: EventFilter(onApply: _applyFilter))),
 
-          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 4)),
+          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
         ],
       ),
       floatingActionButton: (currentUsername.isNotEmpty)

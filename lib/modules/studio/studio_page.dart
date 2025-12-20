@@ -402,15 +402,17 @@ class _StudioPageState extends State<StudioPage> {
           ),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80), // Adjust for navbar
-        child: FloatingActionButton(
-          heroTag: 'studio-fab',
-          onPressed: _navigateToCreateStudio,
-          backgroundColor: AppColors.orange,
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ),
+      floatingActionButton: _isAdmin
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80), // Adjust for navbar
+              child: FloatingActionButton(
+                heroTag: 'studio-fab',
+                onPressed: _navigateToCreateStudio,
+                backgroundColor: AppColors.orange,
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
+            )
+          : null,
     );
   }
 }
