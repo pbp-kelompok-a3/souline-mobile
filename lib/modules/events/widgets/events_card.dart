@@ -83,7 +83,7 @@ class EventCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    DateFormat("dd MMM yyyy").format(event.date),
+                    DateFormat("dd MMMM yyyy", "en_US").format(event.date),
                     style: const TextStyle(color: Color(0xFF7A8D9C), fontSize: 12),
                   ),
                   const SizedBox(height: 8),

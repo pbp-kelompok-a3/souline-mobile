@@ -117,7 +117,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
           const SizedBox(height: 20),
           Text(widget.event.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(DateFormat("dd MMMM yyyy").format(widget.event.date)),
+          Text(DateFormat("dd MMMM yyyy", "en_US").format(widget.event.date)),
           const SizedBox(height: 20),
           const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),

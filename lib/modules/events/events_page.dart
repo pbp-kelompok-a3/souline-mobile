@@ -107,16 +107,14 @@ class _EventsPageState extends State<EventsPage> {
 
     final resp = await http.delete(Uri.parse(url), headers: headers);
     if (resp.statusCode == 200) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Event deleted')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event deleted')));
       setState(() {
         futureEvents = fetchEvents();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: ${resp.statusCode}')),
-      );
+          SnackBar(content: Text('Delete failed: ${resp.statusCode}')));
     }
   }
 
@@ -135,9 +133,8 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final headerLocationLabel = selectedCity.isEmpty
-        ? 'All Locations'
-        : selectedCity;
+    final headerLocationLabel =
+        selectedCity.isEmpty ? 'All Locations' : selectedCity;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -146,7 +143,6 @@ class _EventsPageState extends State<EventsPage> {
         children: [
           Column(
             children: [
-              // Custom App Header
               AppHeader(
                 title: 'Event',
                 onSearchChanged: (value) {
@@ -157,10 +153,7 @@ class _EventsPageState extends State<EventsPage> {
                 onFilterPressed: _toggleFilter,
                 showDrawerButton: true,
               ),
-
               const SizedBox(height: 40),
-
-              // location label
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
@@ -188,16 +181,14 @@ class _EventsPageState extends State<EventsPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              // list area
               Expanded(
                 child: FutureBuilder<List<EventModel>>(
                   future: futureEvents,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(
+                          child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
                       return Center(child: Text('Error: ${snapshot.error}'));
@@ -205,32 +196,34 @@ class _EventsPageState extends State<EventsPage> {
 
                     final allEvents = snapshot.data ?? [];
                     final visibleEvents = allEvents.where((e) {
-                      final matchesCity =
-                          selectedCity.isEmpty ||
+                      final matchesCity = selectedCity.isEmpty ||
                           e.location.toLowerCase().contains(
-                            selectedCity.toLowerCase(),
-                          );
-                      final matchesSearch =
-                          _searchQuery.isEmpty ||
+                                selectedCity.toLowerCase(),
+                              );
+                      final matchesSearch = _searchQuery.isEmpty ||
                           e.name.toLowerCase().contains(
-                            _searchQuery.toLowerCase(),
-                          ) ||
+                                _searchQuery.toLowerCase(),
+                              ) ||
                           e.location.toLowerCase().contains(
-                            _searchQuery.toLowerCase(),
-                          );
+                                _searchQuery.toLowerCase(),
+                              );
                       return matchesCity && matchesSearch;
                     }).toList();
 
                     if (visibleEvents.isEmpty) {
-                    return const Center(child: Text('No upcoming events yet.'));
+                      return const Center(
+                          child: Text('No upcoming events yet.'));
                     }
 
                     return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 120, left: 16, right: 16, top: 8),
+                      padding: const EdgeInsets.only(
+                          bottom: 120, left: 16, right: 16, top: 8),
                       itemCount: visibleEvents.length,
                       itemBuilder: (context, index) {
                         final event = visibleEvents[index];
-                      final isOwner = currentUsername.isNotEmpty && currentUsername == event.createdBy;
+                        final isOwner = currentUsername.isNotEmpty &&
+                            currentUsername == event.createdBy;
+
                         return EventCard(
                           event: event,
                           posterUrl: buildPosterUrl(event.poster),
@@ -239,42 +232,65 @@ class _EventsPageState extends State<EventsPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                              builder: (_) => EventDetailPage(event: event, baseUrl: AppConstants.baseUrl, currentUsername: currentUsername),
+                                builder: (_) => EventDetailPage(
+                                    event: event,
+                                    baseUrl: AppConstants.baseUrl,
+                                    currentUsername: currentUsername),
                               ),
-                          ).then((_) => setState(() => futureEvents = fetchEvents()));
+                            ).then((_) =>
+                                setState(() => futureEvents = fetchEvents()));
                           },
                           onEdit: isOwner
                               ? () {
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => AddEventPage(editEvent: event))).then((_) => setState(() => futureEvents = fetchEvents()));
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              AddEventPage(editEvent: event)))
+                                      .then((_) =>
+                                          setState(() => futureEvents = fetchEvents()));
                                 }
                               : null,
-                        onDelete: isOwner ? () => _deleteEvent(event.id) : null,
+                          onDelete: isOwner
+                              ? () => _deleteEvent(event.id)
+                              : null,
                         );
                       },
                     );
                   },
                 ),
               ),
-          ]),
-
+            ],
+          ),
           if (isFilterVisible)
-            Positioned(top: 180, left: 20, right: 20, child: Material(elevation: 6, borderRadius: BorderRadius.circular(16), child: EventFilter(onApply: _applyFilter))),
-
-          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
+            Positioned(
+              top: 180,
+              left: 20,
+              right: 20,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(16),
+                child: EventFilter(onApply: _applyFilter),
+              ),
+            ),
+          const Positioned(
+              left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
         ],
       ),
-      floatingActionButton: (currentUsername.isNotEmpty)
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 80),
-              child: FloatingActionButton(
-                backgroundColor: AppColors.orange,
-                child: const Icon(Icons.add, color: Colors.white),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AddEventPage())).then((_) => setState(() => futureEvents = fetchEvents()));
-                },
-              ),
-            )
-          : null,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80), 
+        child: FloatingActionButton(
+          backgroundColor: AppColors.orange,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, color: AppColors.cream, size: 32),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddEventPage()),
+            ).then((_) => setState(() => futureEvents = fetchEvents()));
+          },
+        ),
+      ),
     );
   }
 }
