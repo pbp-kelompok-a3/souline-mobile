@@ -5,6 +5,7 @@ import 'sportswear_brand_form_page.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
+import 'package:souline_mobile/shared/widgets/left_drawer.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'sportswear_service.dart';
 
@@ -48,6 +49,7 @@ class _SportswearPageState extends State<SportswearPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const LeftDrawer(),
       body: Stack(
         children: [
           Column(
@@ -56,6 +58,7 @@ class _SportswearPageState extends State<SportswearPage> {
                 title: 'Sportswear',
                 onSearchChanged: _onSearchChanged,
                 onFilterPressed: () => setState(() => _isFilterOpen = !_isFilterOpen),
+                showDrawerButton: true,
               ),
               const SizedBox(height: 38),
               Padding(
