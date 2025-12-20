@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../modules/events/events_page.dart';
+import '../../models/event_model.dart';
 
 class HomeEventCard extends StatelessWidget {
   final EventModel event;

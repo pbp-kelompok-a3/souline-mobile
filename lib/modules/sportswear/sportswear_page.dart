@@ -1,80 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import 'sportswear_detail_page.dart';
 import 'sportswear_brand_form_page.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
+import 'package:souline_mobile/shared/widgets/left_drawer.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'sportswear_service.dart';
 
-class SportswearService {
-  static const String _baseUrl = '${AppConstants.baseUrl}sportswear/api';
-
-  Future<Map<String, String>> _getAuthHeaders() async {
-    return {'Content-Type': 'application/json; charset=UTF-8'};
-  }
-
-  Future<List<Product>> fetchBrands({String? tag, String? query}) async {
-    String url = '$_baseUrl/list/';
-    Map<String, String> params = {};
-    if (tag != null && tag.toLowerCase() != 'all') {
-      params['tag'] = tag;
-    }
-    if (query != null && query.isNotEmpty) {
-      params['q'] = query;
-    }
-    if (params.isNotEmpty) {
-      url += '?' + Uri(queryParameters: params).query;
-    }
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((json) => Product.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load brands. Status: ${response.statusCode}');
-    }
-  }
-
-  Future<Product> createBrand(Product newBrand) async {
-    final headers = await _getAuthHeaders();
-    final url = Uri.parse('$_baseUrl/create/');
-    final Map<String, dynamic> body = newBrand.toJson();
-    body.remove('id');
-    final response = await http.post(url, headers: headers, body: jsonEncode(body));
-    if (response.statusCode == 201) {
-      return Product.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to create brand.');
-    }
-  }
-
-  Future<Product> updateBrand(Product existingBrand) async {
-    final headers = await _getAuthHeaders();
-    final url = Uri.parse('$_baseUrl/update/${existingBrand.id}/');
-    final response = await http.put(url, headers: headers, body: jsonEncode(existingBrand.toJson()));
-    if (response.statusCode == 200) {
-      return Product.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to update brand.');
-    }
-  }
-
-  Future<void> deleteBrand(int id) async {
-    final headers = await _getAuthHeaders();
-    final url = Uri.parse('$_baseUrl/delete/$id/');
-    final response = await http.delete(url, headers: headers);
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      return;
-    } else {
-      throw Exception('Failed to delete brand.');
-    }
-  }
-}
-
+//  WIDGET HALAMAN UTAMA
 class SportswearPage extends StatefulWidget {
   const SportswearPage({super.key});
 
@@ -114,6 +49,7 @@ class _SportswearPageState extends State<SportswearPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: const LeftDrawer(),
       body: Stack(
         children: [
           Column(
@@ -122,6 +58,7 @@ class _SportswearPageState extends State<SportswearPage> {
                 title: 'Sportswear',
                 onSearchChanged: _onSearchChanged,
                 onFilterPressed: () => setState(() => _isFilterOpen = !_isFilterOpen),
+                showDrawerButton: true,
               ),
               const SizedBox(height: 38),
               Padding(

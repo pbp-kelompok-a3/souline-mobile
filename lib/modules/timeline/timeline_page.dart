@@ -8,6 +8,7 @@ import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 import 'package:souline_mobile/modules/timeline/widgets/post_card.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
+import 'package:souline_mobile/shared/widgets/left_drawer.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class TimelinePage extends StatefulWidget {
@@ -122,6 +123,7 @@ class TimelinePageState extends State<TimelinePage> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
+      drawer: const LeftDrawer(),
       body: Stack(
         children: [
           Column(
@@ -129,7 +131,8 @@ class TimelinePageState extends State<TimelinePage> {
               AppHeader(
                 title: 'Timeline',
                 onSearchChanged: _onSearchChanged,
-                onFilterPressed: _toggleFilter
+                onFilterPressed: _toggleFilter,
+                showDrawerButton: true,
               ),
 
             if (_isFilterVisible)

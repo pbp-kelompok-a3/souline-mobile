@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../events_page.dart';
+import '../../../shared/models/event_model.dart';
 import '../../../core/constants/app_constants.dart';
 import 'package:intl/intl.dart';
 

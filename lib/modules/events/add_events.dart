@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:souline_mobile/shared/models/event_model.dart';
 import '../../core/constants/app_constants.dart';
-import 'events_page.dart';
 
 class AddEventPage extends StatefulWidget {
   final EventModel? editEvent;

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:pbp_django_auth/pbp_django_auth.dart';
@@ -19,15 +18,17 @@ import './shared/models/studio_entry.dart';
 import './shared/models/resources_entry.dart';
 import './shared/models/post_entry.dart';
 import './shared/models/sportswear_model.dart';
+import './shared/models/event_model.dart';
 
 import 'modules/studio/studio_page.dart';
 import 'modules/studio/studio_service.dart';
 import 'modules/studio/studio_detail_page.dart';
 import 'modules/sportswear/sportswear_page.dart';
+import 'modules/sportswear/sportswear_service.dart';
 import 'modules/resources/resources_page.dart';
-import 'modules/user/user_page.dart';
-import 'modules/user/login.dart';
+
 import 'modules/timeline/timeline_page.dart';
+import 'modules/timeline/timeline_service.dart';
 import 'modules/timeline/post_detail.dart';
 import 'modules/events/events_page.dart';
 import 'modules/events/events_detail.dart';
@@ -40,12 +41,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // User section state
-  String? _username;
-  bool _isLoadingUser = true;
-
   // Studio section state
-  UserKota? _selectedCity; // null until loaded from API
+  UserKota? _selectedCity;
   List<Studio> _studios = [];
   bool _isLoadingStudios = true;
 
@@ -60,79 +57,20 @@ class _HomePageState extends State<HomePage> {
 
   // Sportswear section state
   List<Product> _sportswear = [];
+  bool _isLoadingSportswear = true;
 
   // Timeline section state
   List<Result> _timelinePosts = [];
+  bool _isLoadingTimeline = true;
 
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
     _loadMockData();
     _loadStudios();
     _loadEvents();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    final request = context.read<CookieRequest>();
-    
-    if (request.loggedIn) {
-      try {
-        final response = await request.get(
-          'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/users/get-profile-flutter/',
-        );
-        
-        if (response['status'] == true) {
-          setState(() {
-            _username = response['username'];
-            _isLoadingUser = false;
-          });
-        } else {
-          setState(() {
-            _isLoadingUser = false;
-          });
-        }
-      } catch (e) {
-        setState(() {
-          _isLoadingUser = false;
-        });
-      }
-    } else {
-      setState(() {
-        _isLoadingUser = false;
-      });
-    }
-  }
-
-  Future<void> _logout() async {
-    final request = context.read<CookieRequest>();
-    
-    try {
-      final response = await request.logout(
-        'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/auth/logout/',
-      );
-      
-      if (mounted) {
-        setState(() {
-          _username = null;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response['message'] ?? 'Logged out')),
-        );
-        
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error logging out: $e')),
-        );
-      }
-    }
+    _loadSportswear();
+    _loadTimeline();
   }
 
   /// Load studios from API
@@ -159,16 +97,6 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // If no studios for selected city, try user's city
-      if (studios.isEmpty) {
-        for (final city in entry.cities) {
-          if (city.name == entry.userKota) {
-            studios.addAll(city.studios.take(10));
-            break;
-          }
-        }
-      }
-
       setState(() {
         _selectedCity = effectiveCity; // Set from API response
         _studios = studios;
@@ -178,6 +106,51 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() => _isLoadingStudios = false);
       debugPrint('Error loading studios: $e');
+    }
+  }
+
+  /// Load sportswear from API
+  Future<void> _loadSportswear() async {
+    setState(() => _isLoadingSportswear = true);
+    try {
+      final service = SportswearService();
+      // Fetch some brands, e.g. limit to first few or just default list
+      final products = await service.fetchBrands();
+
+      if (!mounted) return;
+
+      setState(() {
+        _sportswear = products.take(5).toList(); // Show top 5 on home
+        _isLoadingSportswear = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingSportswear = false);
+      debugPrint('Error loading sportswear: $e');
+    }
+  }
+
+  /// Load timeline posts from API
+  Future<void> _loadTimeline() async {
+    setState(() => _isLoadingTimeline = true);
+    try {
+      final request = context.read<CookieRequest>();
+      final service = TimelineService(request);
+      final response = await service.fetchPosts();
+
+      if (!mounted) return;
+
+      setState(() {
+        // Sort by latest (descending ID) and take top 3
+        final sorted = List<Result>.from(response.results);
+        sorted.sort((a, b) => b.id.compareTo(a.id));
+        _timelinePosts = sorted.take(3).toList();
+        _isLoadingTimeline = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingTimeline = false);
+      debugPrint('Error loading timeline: $e');
     }
   }
 
@@ -218,10 +191,10 @@ class _HomePageState extends State<HomePage> {
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-        setState(() {
-          _events = data.map((e) => EventModel.fromJson(e)).toList();
-          _isLoadingEvents = false;
-        });
+        setState(
+          () => _events = data.map((e) => EventModel.fromJson(e)).toList(),
+        );
+        _isLoadingEvents = false;
       } else {
         throw Exception('Failed to load events (${response.statusCode})');
       }
@@ -274,90 +247,6 @@ class _HomePageState extends State<HomePage> {
         level: 'advanced',
       ),
     ];
-
-    // Mock sportswear data
-    _sportswear = [
-      Product(
-        id: 1,
-        name: 'Anmo Yoga',
-        description: 'Premium yoga apparel brand',
-        tag: 'Yoga',
-        thumbnail:
-            'https://down-id.img.susercontent.com/file/id-11134207-7r992-lw5v3iuwq2eu75',
-        rating: 4.5,
-        link: 'https://shopee.co.id/anmoyoga',
-        timelineReviews: [],
-      ),
-      Product(
-        id: 2,
-        name: 'COSI Active',
-        description: 'Activewear for your lifestyle',
-        tag: 'Pilates',
-        thumbnail:
-            'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT55LRzTCQi9Dw4H3P9DQHYF2Ax0OTv7xN1Sw&s',
-        rating: 4.3,
-        link: 'https://www.tokopedia.com/cosiactive',
-        timelineReviews: [],
-      ),
-      Product(
-        id: 3,
-        name: 'HAPPYFIT',
-        description: 'Fitness equipment & accessories',
-        tag: 'Yoga',
-        thumbnail:
-            'https://images.tokopedia.net/img/cache/500-square/VqbcmM/2022/11/13/3db3a7d1-c7f0-4e9c-88f1-83e56e9cf597.jpg',
-        rating: 4.7,
-        link: 'https://www.tokopedia.com/happyfit',
-        timelineReviews: [],
-      ),
-      Product(
-        id: 4,
-        name: 'Aura Apparel',
-        description: 'Sustainable activewear',
-        tag: 'Yoga',
-        thumbnail:
-            'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGH7TbCPEbhmQkQbE3_oS6N3h5nAU8FvQ3aw&s',
-        rating: 4.4,
-        link: 'https://shopee.co.id/auraapparel',
-        timelineReviews: [],
-      ),
-    ];
-
-    // Mock timeline posts
-    _timelinePosts = [
-      Result(
-        id: 1,
-        authorUsername: 'yogalover',
-        text:
-            'Just finished my morning yoga session! Feeling refreshed and ready to start the day 🧘‍♀️',
-        likeCount: 24,
-        commentCount: 5,
-        likedByUser: false,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      Result(
-        id: 2,
-        authorUsername: 'pilatesqueen',
-        text:
-            'Anyone tried the new pilates studio in Kemang? The instructors are amazing!',
-        likeCount: 18,
-        commentCount: 12,
-        likedByUser: true,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      Result(
-        id: 3,
-        authorUsername: 'fitnessjunkie',
-        text: 'Week 4 of my yoga challenge complete! The progress is real 💪',
-        likeCount: 45,
-        commentCount: 8,
-        likedByUser: false,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-    ];
   }
 
   /// Filter resources by level
@@ -391,87 +280,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final request = context.watch<CookieRequest>();
-    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Souline'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        centerTitle: true,
-        actions: [
-          if (_isLoadingUser)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (request.loggedIn && _username != null)
-            PopupMenuButton<String>(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: [
-                    Text(
-                      'Hello, $_username',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
-                ),
-              ),
-              onSelected: (value) {
-                if (value == 'profile') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const UserPage()),
-                  ).then((_) => _checkLoginStatus());
-                } else if (value == 'logout') {
-                  _logout();
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem<String>(
-                  value: 'profile',
-                  child: Row(
-                    children: [
-                      Icon(Icons.person, size: 20),
-                      SizedBox(width: 8),
-                      Text('Profile'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 20),
-                      SizedBox(width: 8),
-                      Text('Logout'),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          else
-            TextButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                ).then((_) => _checkLoginStatus());
-              },
-              icon: const Icon(Icons.login),
-              label: const Text('Login'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.black87,
-              ),
-            ),
-        ],
-      ),
       backgroundColor: AppColors.cream,
       drawer: const LeftDrawer(),
       body: Stack(
@@ -826,6 +635,13 @@ class _HomePageState extends State<HomePage> {
 
   /// Build Sportswear section with horizontal scroll
   Widget _buildSportswearSection() {
+    if (_isLoadingSportswear) {
+      return const SizedBox(
+        height: 220,
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
     if (_sportswear.isEmpty) {
       return SizedBox(
         height: 220,
@@ -853,6 +669,13 @@ class _HomePageState extends State<HomePage> {
 
   /// Build Timeline section with vertical scroll (max 3 posts)
   Widget _buildTimelineSection() {
+    if (_isLoadingTimeline) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
     final posts = _timelinePosts.take(3).toList();
 
     if (posts.isEmpty) {
