@@ -3,22 +3,27 @@ import 'package:intl/intl.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/modules/resources/resources_detail_page.dart';
+import 'package:souline_mobile/modules/sportswear/sportswear_detail_page.dart';
 import 'package:souline_mobile/modules/timeline/comment_form.dart';
 import 'package:souline_mobile/modules/timeline/timeline_service.dart';
+import 'package:souline_mobile/modules/timeline/full_image.dart';
 import 'package:souline_mobile/modules/user/bookmarks_service.dart';
+import 'package:souline_mobile/modules/user/user_page.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class PostCard extends StatefulWidget {
   final Result post;
-  final VoidCallback? onTap; // for navigating to PostDetail
   final bool? detail;
+  final VoidCallback? onTap; // for navigating to PostDetail
+  final VoidCallback? onCommentTap;
 
   const PostCard({
     super.key,
     required this.post,
-    this.onTap,
     this.detail = false,
+    this.onTap,
+    this.onCommentTap,
   });
 
   @override
@@ -143,11 +148,30 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  String? _getImageUrl() {
+    final rawImage = widget.post.image;
+    
+    if (rawImage == null || rawImage.isEmpty) return null;
+    if (rawImage.startsWith('http')) return rawImage;
+
+    return '${AppConstants.baseUrl}${rawImage.startsWith('/') ? rawImage.substring(1) : rawImage}';
+  }
+
+  void _navigateToProfile(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => UserPage(),
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
     final detail = widget.detail;
-    Map<String, dynamic>? attachment = post.attachment;
+    final String? imageUrl = _getImageUrl();
+    Attachment? attachment = post.attachment;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -159,11 +183,14 @@ class _PostCardState extends State<PostCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    'https://ui-avatars.com/api/?name=${post.authorUsername}&background=random',
+                GestureDetector(  
+                  // onTap: () => _navigateToProfile(context),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      'https://ui-avatars.com/api/?name=${post.authorUsername}&background=random',
+                    ),
+                    radius: 20,
                   ),
-                  radius: 20,
                 ),
 
                 SizedBox(width: detail == true ? 16 : 12),
@@ -175,12 +202,15 @@ class _PostCardState extends State<PostCard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            post.authorUsername,
-                            style: TextStyle(
-                              color: AppColors.textDark,
-                              fontWeight: FontWeight.bold,
-                              fontSize: detail == true ? 18 : 14,
+                          GestureDetector(  
+                            // onTap: () => _navigateToProfile(context),
+                            child: Text(
+                              post.authorUsername,
+                              style: TextStyle(
+                                color: AppColors.textDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: detail == true ? 18 : 14,
+                              ),
                             ),
                           ),
                           if (detail == false)
@@ -206,16 +236,37 @@ class _PostCardState extends State<PostCard> {
 
                       SizedBox(height: detail == true ? 12 : 8),
 
-                      if (post.image != null && post.image!.isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            post.image!,
-                            height: detail == true ? 250 : 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                      if (imageUrl != null)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FullScreenImagePage(imageUrl: imageUrl),
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: imageUrl, 
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              imageUrl,
+                              height: detail == true ? 250 : 150,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: detail == true ? 250 : 150,
+                                  width: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                                );
+                              },
+                            ),
                           ),
                         ),
+                      ),
 
                       SizedBox(height: detail == true ? 10 : 0),
 
@@ -232,27 +283,47 @@ class _PostCardState extends State<PostCard> {
                             ),
                             child: ListTile(
                               leading: Image.network(
-                                attachment['thumbnail'] ?? '',
+                                attachment.thumbnail,
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,
                               ),
                               title: Text(
-                                attachment['name'] ?? '',
+                                attachment.name,
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                               subtitle: Text(
-                                attachment['tag'] ??
-                                    attachment['type'] ??
-                                    'Attachment',
+                                attachment.type,
                               ),
                               onTap: () async {
-                                final url = attachment['link'] ?? '';
+                                final request = context.read<CookieRequest>();
+                                final service = TimelineService(request);
 
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(
-                                    Uri.parse(url),
-                                    mode: LaunchMode.externalApplication,
+                                if (attachment.type == 'Resources') {
+                                  final video = await service.fetchResourceById(attachment.id);
+
+                                  if (context.mounted) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ResourceDetailPage(resource: video),
+                                      ),
+                                    );
+                                  }
+                                } else if (attachment.type == 'Sportswear') {
+                                  final product = await service.fetchProductById(attachment.id);
+
+                                  if (context.mounted) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SportswearDetailPage(product: product),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Unknown attachment type: ${attachment.type}")),
                                   );
                                 }
                               },
@@ -281,7 +352,7 @@ class _PostCardState extends State<PostCard> {
                               size: detail == true ? 24 : 20,
                             ),
                             constraints: const BoxConstraints(),
-                            onPressed: () {
+                            onPressed: widget.onCommentTap ?? () {
                               final request = context.read<CookieRequest>();
                               if (request.loggedIn) {
                                 Navigator.push(

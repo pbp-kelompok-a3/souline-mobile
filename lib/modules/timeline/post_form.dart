@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,8 +24,9 @@ class _PostFormPageState extends State<PostFormPage> {
 
   late TextEditingController _textController;
   late TextEditingController _imageController;
+  XFile? _selectedImageFile;
 
-  Map<String, dynamic>? attachments;
+  Attachment? attachments;
   bool get _isEditing => widget.post != null;
 
   @override
@@ -36,7 +37,7 @@ class _PostFormPageState extends State<PostFormPage> {
     _imageController = TextEditingController(text: widget.post?.image ?? '');
     
     if (widget.post != null && widget.post!.attachment != null) {
-      attachments = Map<String, dynamic>.from(widget.post!.attachment!);
+      attachments = widget.post!.attachment!;
     }
   }
 
@@ -51,19 +52,28 @@ class _PostFormPageState extends State<PostFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final request = context.read<CookieRequest>();
-        final timelineService = TimelineService(request);
+    final timelineService = TimelineService(request);
 
     try {
       String? base64Image;
-      if (_imageController.text.isNotEmpty && !_imageController.text.startsWith('http')) {
-          base64Image = await _imageToBase64(_imageController.text);
+      if (_selectedImageFile != null) {
+         base64Image = await _imageToBase64(_selectedImageFile);
       }
 
-      await timelineService.createPost(
-        text: _textController.text,
-        image: base64Image, 
-        attachment: attachments, 
-      );
+      if (_isEditing) {
+        await timelineService.editPost(
+          widget.post!.id,
+          text: _textController.text,
+          image: base64Image, 
+          attachment: attachments,
+        );
+      } else {
+        await timelineService.createPost(
+          text: _textController.text,
+          image: base64Image,
+          attachment: attachments,
+        );
+      }
 
       if (!mounted) return;
       Navigator.pop(context, true); 
@@ -85,20 +95,20 @@ class _PostFormPageState extends State<PostFormPage> {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        _imageController.text = image.path;
+        _selectedImageFile = image;
+        _imageController.text = image.name;
       });
     }
   }
 
-  Future<String?> _imageToBase64(String path) async {
-    if (path.isEmpty) return null;
+  Future<String?> _imageToBase64(XFile? imageFile) async {
+    if (imageFile == null) return null;
     try {
-      final File imageFile = File(path);
       final List<int> imageBytes = await imageFile.readAsBytes();
       final String base64Image = base64Encode(imageBytes);
       return base64Image;
     } catch (e) {
-        print("Error converting image: $e");
+      print("Error converting image: $e");
       return null;
     }
   }
@@ -194,7 +204,7 @@ class _PostFormPageState extends State<PostFormPage> {
                 ),
               ),
 
-              if (_imageController.text.isNotEmpty)
+              if (_selectedImageFile != null)
               Stack(
                 alignment: Alignment.topRight,
                 children: [
@@ -202,11 +212,17 @@ class _PostFormPageState extends State<PostFormPage> {
                     padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        _imageController.text,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
+                      child: kIsWeb 
+                        ? Image.network(
+                            _selectedImageFile!.path,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.file(
+                            File(_selectedImageFile!.path),
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                     ),
                   ),
                   IconButton(
@@ -238,16 +254,16 @@ class _PostFormPageState extends State<PostFormPage> {
                       ),
                       child: ListTile(
                         leading: Image.network(
-                          attachment['thumbnail'] ?? '',
+                          attachment.thumbnail,
                           width: 50,
                           height: 50,
                           fit: BoxFit.cover,
                         ),
-                        title: Text(attachment['name'] ?? '', 
+                        title: Text(attachment.name, 
                           style: TextStyle(
                             fontWeight: FontWeight.bold),
                             ),
-                        subtitle: Text(attachment['tag'] ?? attachment['type'] ?? 'Attachment'),
+                        subtitle: Text(attachment.type),
                       ),
                     ),
                   ),
