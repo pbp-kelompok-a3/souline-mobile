@@ -1,8 +1,9 @@
 import 'dart:convert';
 
-Post postFromJson(String str) => Post.fromJson(json.decode(str));
 
+Post postFromJson(String str) => Post.fromJson(json.decode(str));
 String postToJson(Post data) => json.encode(data.toJson());
+
 
 class Post {
   List<Result> results;
@@ -29,6 +30,7 @@ class Post {
     "previous": previous,
   };
 }
+
 
 class Result {
   int id;
@@ -129,6 +131,7 @@ Attachment({
     "link": link,
   };
 }
+
 
 class Comment {
   int id;

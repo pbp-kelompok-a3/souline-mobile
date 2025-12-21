@@ -156,78 +156,303 @@ class _AddEventPageState extends State<AddEventPage> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      appBar: AppBar(
-        title: Text(isEdit ? 'Edit Event' : 'Add Event'),
-        backgroundColor: AppColors.cream,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _imageUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Image URL (optional)',
-                  hintText: 'Enter poster URL',
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      onPressed: () => Navigator.pop(context),
+                      color: AppColors.darkBlue,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      isEdit ? 'Edit Event' : 'Add Events',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _dateCtrl,
-                decoration: const InputDecoration(labelText: 'Date'),
-                readOnly: true,
-                onTap: _pickDate,
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              _studioEntry == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : DropdownButtonFormField<Studio>(
-                      value: _selectedStudio,
-                      decoration: const InputDecoration(labelText: 'Location'),
-                      items: _studioEntry!.cities
-                          .expand((city) => city.studios)
-                          .map(
-                            (studio) => DropdownMenuItem(
-                              value: studio,
-                              child: Text(studio.namaStudio),
+                const SizedBox(height: 24),
+
+                // Post Image / URL Input
+                Center(
+                  child: GestureDetector(
+                    onTap: () async {
+                      final url = await _showImageUrlDialog();
+                      if (url != null) {
+                        setState(() {
+                          _imageUrlCtrl.text = url;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 200,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBEBEB),
+                        borderRadius: BorderRadius.circular(20),
+                        image: _imageUrlCtrl.text.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(_imageUrlCtrl.text),
+                                fit: BoxFit.cover,
+                                onError: (_, __) {},
+                              )
+                            : null,
+                      ),
+                      child: _imageUrlCtrl.text.isEmpty
+                          ? const Center(
+                              child: Icon(
+                                Icons.add,
+                                size: 48,
+                                color: AppColors.lightBlue,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                if (_imageUrlCtrl.text.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Center(
+                      child: Text(
+                        "Tap to add image URL",
+                        style: TextStyle(
+                          color: AppColors.textMuted.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 32),
+
+                // Name
+                _buildLabel('Name'),
+                _buildTextField(
+                  controller: _nameCtrl,
+                  hint: 'Enter Event Name',
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Date
+                _buildLabel('Date'),
+                _buildTextField(
+                  controller: _dateCtrl,
+                  hint: 'DD/MM/YY',
+                  readOnly: true,
+                  onTap: _pickDate,
+                  suffixIcon: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: AppColors.darkBlue,
+                    size: 20,
+                  ),
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Location
+                _buildLabel('Location'),
+                _studioEntry == null
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: LinearProgressIndicator(),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButtonFormField<Studio>(
+                            value: _selectedStudio,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.darkBlue,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                            ),
+                            hint: const Text(
+                              'Enter Location',
+                              style: TextStyle(color: Color(0xFFAAAAAA)),
+                            ),
+                            isExpanded: true,
+                            items: _studioEntry!.cities
+                                .expand((city) => city.studios)
+                                .map(
+                                  (studio) => DropdownMenuItem(
+                                    value: studio,
+                                    child: Text(
+                                      studio.namaStudio,
+                                      style: const TextStyle(
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => _selectedStudio = val),
+                            validator: (val) => val == null ? 'Required' : null,
+                          ),
+                        ),
+                      ),
+                const SizedBox(height: 16),
+
+                // Description
+                _buildLabel('Description'),
+                _buildTextField(
+                  controller: _descCtrl,
+                  hint: 'Write description about the event...',
+                  maxLines: 4,
+                ),
+
+                const SizedBox(height: 32),
+
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.darkBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
                             ),
                           )
-                          .toList(),
-                      onChanged: (val) => setState(() => _selectedStudio = val),
-                      validator: (val) => val == null ? 'Required' : null,
-                    ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(isEdit ? 'Save' : 'Add Event'),
-              ),
-            ],
+                        : Text(
+                            isEdit ? 'Save Changes' : 'Create Event',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: AppColors.darkBlue,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
+        maxLines: maxLines,
+        validator: validator,
+        style: const TextStyle(color: AppColors.textDark),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFFAAAAAA)),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          suffixIcon: suffixIcon,
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _showImageUrlDialog() async {
+    final ctrl = TextEditingController(text: _imageUrlCtrl.text);
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Image URL'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            hintText: 'https://example.com/image.jpg',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('Set'),
+          ),
+        ],
       ),
     );
   }

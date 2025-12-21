@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
+
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/models/resources_entry.dart';
 import 'package:souline_mobile/modules/resources/widgets/resources_card.dart';
@@ -24,54 +27,106 @@ class ResourcesPage extends StatefulWidget {
 class _ResourcesPageState extends State<ResourcesPage> {
   String? _selectedLevel; // null = mode default (section view)
   String _searchQuery = '';
-  bool isAdmin = true;
+  bool _isAdmin = false;
+  CookieRequest? _lastRequest;
+  bool _initializedRequest = false;
+  bool _requestedAdminStatus = false;
 
-  late List<ResourcesEntry> dummyResources;
+  // biar FutureBuilder nggak refetch terus setiap build()
+  late Future<List<ResourcesEntry>> _futureResources;
 
   @override
   void initState() {
     super.initState();
-    dummyResources = [
-      ResourcesEntry(
-        id: 1,
-        title: '30 MIN PILATES',
-        description:
-            'This beginner-to-moderate level Pilates class is perfect...',
-        youtubeUrl: 'https://www.youtube.com/embed/wtVyZmHnlxM',
-        videoId: 'wtVyZmHnlxM',
-        thumbnailUrl: 'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
-        level: 'beginner',
-      ),
-      ResourcesEntry(
-        id: 2,
-        title: '30 MIN FULL BODY',
-        description: 'Intermediate full body pilates...',
-        youtubeUrl: 'https://www.youtube.com/embed/C2HX2pNbUCM',
-        videoId: 'C2HX2pNbUCM',
-        thumbnailUrl: 'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
-        level: 'intermediate',
-      ),
-      ResourcesEntry(
-        id: 3,
-        title:
-            'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
-        description: 'Beginner pilates session...',
-        youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
-        videoId: 'sPNpgaXVGw4',
-        thumbnailUrl: 'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
-        level: 'beginner',
-      ),
-      ResourcesEntry(
-        id: 4,
-        title:
-            'LATIHAN PILATES SELURUH TUBUH 20 MENIT - Rutinitas Inti di Rumah',
-        description: 'Advanced pilates session...',
-        youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
-        videoId: 'sPNpgaXVGw4',
-        thumbnailUrl: 'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
-        level: 'advanced',
-      ),
+
+    // NOTE: CookieRequest belum tersedia di initState lewat context.watch,
+    // jadi kita set future ini di didChangeDependencies.
+    _futureResources = Future.value([]);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final request = context.watch<CookieRequest>();
+    if (!_initializedRequest || _lastRequest != request) {
+      _initializedRequest = true;
+      _lastRequest = request;
+      _futureResources = fetchResources(request);
+      _requestedAdminStatus = false;
+    }
+
+    if (!_requestedAdminStatus) {
+      _requestedAdminStatus = true;
+      _loadAdminStatus(request);
+    }
+  }
+
+  String _joinBase(String path) {
+    final base = AppConstants.baseUrl;
+    if (base.endsWith('/')) return '$base$path';
+    return '$base/$path';
+  }
+
+  Future<List<ResourcesEntry>> fetchResources(CookieRequest request) async {
+    final candidates = [
+      'resources/api/list/',
+      'resources/api/',
+      'api/resources/',
+      'resources/json/',
     ];
+    dynamic payload;
+    Exception? lastError;
+    for (final path in candidates) {
+      final url = _joinBase(path);
+      try {
+        final data = await request.get(url);
+        if (data is List) {
+          payload = data;
+          break;
+        }
+        if (data is Map && data['results'] is List) {
+          payload = data['results'];
+          break;
+        }
+        lastError = Exception('Unexpected response format from $url');
+      } catch (e) {
+        lastError = Exception('Failed to load $url: $e');
+      }
+    }
+
+    if (payload == null) {
+      throw lastError ?? Exception('Unable to fetch resources');
+    }
+
+    final List<ResourcesEntry> result = [];
+    for (final item in payload) {
+      if (item is Map<String, dynamic>) {
+        result.add(ResourcesEntry.fromJson(item));
+      }
+    }
+    return result;
+  }
+
+  Future<void> _refresh() async {
+    final request = _lastRequest ?? context.read<CookieRequest>();
+    setState(() {
+      _futureResources = fetchResources(request);
+    });
+  }
+
+  Future<void> _loadAdminStatus(CookieRequest request) async {
+    if (!request.loggedIn) {
+      if (mounted && _isAdmin) setState(() => _isAdmin = false);
+      return;
+    }
+    try {
+      final data = await request.get(_joinBase('is-admin/'));
+      final admin = data is Map<String, dynamic> && data['is_admin'] == true;
+      if (mounted) setState(() => _isAdmin = admin);
+    } catch (_) {
+      if (mounted) setState(() => _isAdmin = false);
+    }
   }
 
   Color _primaryColorForLevel(String? level) {
@@ -94,104 +149,137 @@ class _ResourcesPageState extends State<ResourcesPage> {
         return const Color(0xFFE1F1FF); // biru muda banget
       case 'beginner':
       default:
-        return const Color(0xFFE5FBC3); // hijau muda (kayak desain kamu)
+        return const Color(0xFFE5FBC3); // hijau muda
     }
   }
 
-  // sementara dummy data
-  // List<ResourcesEntry> get dummyResources => [ ... ]; // removed getter
-  // -------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    final allBase = dummyResources;
-    final all = allBase.where((r) {
-      if (_searchQuery.isEmpty) return true;
-
-      final q = _searchQuery.toLowerCase();
-      return r.title.toLowerCase().contains(q) ||
-          r.description.toLowerCase().contains(q) ||
-          r.level.toLowerCase().contains(q);
-    }).toList();
-
-    final beginner = all
-        .where((r) => r.level.toLowerCase() == 'beginner')
-        .toList();
-    final intermediate = all
-        .where((r) => r.level.toLowerCase() == 'intermediate')
-        .toList();
-    final advanced = all
-        .where((r) => r.level.toLowerCase() == 'advanced')
-        .toList();
-
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7EA),
       drawer: const LeftDrawer(),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // === KONTEN UTAMA DI BELAKANG (LIST / SCROLL) ===
-            Padding(
-              // angka 190 bisa kamu tweak (180–200) sampai pas
-              padding: const EdgeInsets.only(top: 190),
-              child: _selectedLevel == null
-                  ? _buildSectionView(beginner, intermediate, advanced)
-                  : _buildFilteredVerticalView(all),
-            ),
+        child: FutureBuilder<List<ResourcesEntry>>(
+          future: _futureResources,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            // === HEADER DI ATAS SEMUA ===
-            AppHeader(
-              title: 'Resources',
-              onSearchChanged: _onSearch,
-              filterHeroTag: 'resources-filter-hero',
-              filterButton: GestureDetector(
-                onTap: () async {
-                  final level = await Navigator.of(context).push<String>(
-                    HeroDialogRoute(
-                      builder: (_) => const ResourcesFilterDialog(),
-                    ),
-                  );
-
-                  if (level != null) {
-                    setState(() => _selectedLevel = level);
-                  }
-                },
-                child: Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8BC5FF),
-                    borderRadius: BorderRadius.circular(18),
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "Failed to load resources.",
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        snapshot.error.toString(),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _refresh,
+                        child: const Text("Retry"),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.tune, color: Colors.white),
                 ),
-              ),
-              showDrawerButton: true,
-            ),
+              );
+            }
 
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: FloatingNavigationBar(currentIndex: 2),
-            ),
-          ],
+            final allBase = snapshot.data ?? [];
+
+            // search filter
+            final all = allBase.where((r) {
+              if (_searchQuery.isEmpty) return true;
+              final q = _searchQuery.toLowerCase();
+              return r.title.toLowerCase().contains(q) ||
+                  r.description.toLowerCase().contains(q) ||
+                  r.level.toLowerCase().contains(q);
+            }).toList();
+
+            final beginner =
+                all.where((r) => r.level.toLowerCase() == 'beginner').toList();
+            final intermediate = all
+                .where((r) => r.level.toLowerCase() == 'intermediate')
+                .toList();
+            final advanced =
+                all.where((r) => r.level.toLowerCase() == 'advanced').toList();
+
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 190),
+                    child: _selectedLevel == null
+                        ? _buildSectionView(beginner, intermediate, advanced)
+                        : _buildFilteredVerticalView(all),
+                  ),
+
+                  AppHeader(
+                    title: 'Resources',
+                    onSearchChanged: _onSearch,
+                    filterHeroTag: 'resources-filter-hero',
+                    filterButton: GestureDetector(
+                      onTap: () async {
+                        final level = await Navigator.of(context).push<String>(
+                          HeroDialogRoute(
+                            builder: (_) => const ResourcesFilterDialog(),
+                          ),
+                        );
+
+                        if (level != null) {
+                          setState(() => _selectedLevel = level);
+                        }
+                      },
+                      child: Container(
+                        height: 48,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8BC5FF),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(Icons.tune, color: Colors.white),
+                      ),
+                    ),
+                    showDrawerButton: true,
+                  ),
+
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: FloatingNavigationBar(currentIndex: 2),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
-      floatingActionButton: isAdmin
+      floatingActionButton: _isAdmin
           ? Padding(
               padding: const EdgeInsets.only(bottom: 90),
               child: FloatingActionButton(
                 backgroundColor: const Color(0xFF62C4D9),
                 shape: const CircleBorder(),
                 child: const Icon(Icons.add, size: 32, color: Colors.white),
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const ResourceFormPage(), // TODO: bikin halaman ini
+                      builder: (_) => const ResourceFormPage(),
                     ),
                   );
+                  // setelah balik dari form, refresh list
+                  _refresh();
                 },
               ),
             )
@@ -206,7 +294,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
     List<ResourcesEntry> advanced,
   ) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -214,16 +302,15 @@ class _ResourcesPageState extends State<ResourcesPage> {
             _ResourcesSection(
               label: 'Beginner',
               resources: beginner,
-              isAdmin: isAdmin,
-              onEdit: (r) {
-                Navigator.push(
+              isAdmin: _isAdmin,
+              onEdit: (r) async {
+                final result = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: Center(child: Text('Form di sini')),
-                    ),
+                    builder: (_) => ResourceFormPage(initialResource: r),
                   ),
                 );
+                if (result == true) _refresh();
               },
               onDelete: _confirmDelete,
               onBookmark: _toggleBookmark,
@@ -232,16 +319,15 @@ class _ResourcesPageState extends State<ResourcesPage> {
             _ResourcesSection(
               label: 'Intermediate',
               resources: intermediate,
-              isAdmin: isAdmin,
-              onEdit: (r) {
-                Navigator.push(
+              isAdmin: _isAdmin,
+              onEdit: (r) async {
+                final result = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: Center(child: Text('Form di sini')),
-                    ),
+                    builder: (_) => ResourceFormPage(initialResource: r),
                   ),
                 );
+                if (result == true) _refresh();
               },
               onDelete: _confirmDelete,
               onBookmark: _toggleBookmark,
@@ -250,42 +336,42 @@ class _ResourcesPageState extends State<ResourcesPage> {
             _ResourcesSection(
               label: 'Advanced',
               resources: advanced,
-              isAdmin: isAdmin,
-              onEdit: (r) {
-                Navigator.push(
+              isAdmin: _isAdmin,
+              onEdit: (r) async {
+                final result = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: Center(child: Text('Form di sini')),
-                    ),
+                    builder: (_) => ResourceFormPage(initialResource: r),
                   ),
                 );
+                if (result == true) _refresh();
               },
               onDelete: _confirmDelete,
               onBookmark: _toggleBookmark,
+            ),
+          if (beginner.isEmpty && intermediate.isEmpty && advanced.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(child: Text("No resources found.")),
             ),
         ],
       ),
     );
   }
 
-  // -------------------------------------------------------
   // MODE 2: Vertical List After Filtering
   Widget _buildFilteredVerticalView(List<ResourcesEntry> all) {
-    final filtered = all
-        .where((r) => r.level.toLowerCase() == _selectedLevel)
-        .toList();
+    final filtered =
+        all.where((r) => r.level.toLowerCase() == _selectedLevel).toList();
 
-    // warna label disesuaikan dengan level
     final primaryColor = _primaryColorForLevel(_selectedLevel);
     final bgColor = _backgroundColorForLevel(_selectedLevel);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(40, 12, 40, 24),
+      padding: const EdgeInsets.fromLTRB(40, 12, 40, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // LABEL BESAR (Beginner / Intermediate / Advanced)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
@@ -304,30 +390,23 @@ class _ResourcesPageState extends State<ResourcesPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // LIST VERTICAL CARD
           ...filtered.map(
             (r) => Padding(
-              // biar tiap card punya jarak ke card lain
               padding: const EdgeInsets.only(bottom: 18),
               child: ResourcesCard(
                 resource: r,
-                showAdminActions: isAdmin,
-                onEdit: () {
-                  Navigator.push(
+                showAdminActions: _isAdmin,
+                onEdit: () async {
+                  final result = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const Scaffold(
-                        body: Center(child: Text('Form di sini')),
-                      ),
+                      builder: (_) => ResourceFormPage(initialResource: r),
                     ),
                   );
+                  if (result == true) _refresh();
                 },
-                onDelete: () {
-                  _confirmDelete(r);
-                },
+                onDelete: () => _confirmDelete(r),
                 onTapBookmark: () => _toggleBookmark(r),
                 onTapDetail: () {
                   Navigator.push(
@@ -343,6 +422,11 @@ class _ResourcesPageState extends State<ResourcesPage> {
               ),
             ),
           ),
+          if (filtered.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: Center(child: Text("No resources for this level.")),
+            ),
         ],
       ),
     );
@@ -366,14 +450,9 @@ class _ResourcesPageState extends State<ResourcesPage> {
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: panggil API delete di sini
+            onPressed: () async {
               Navigator.pop(context);
-
-              setState(() {
-                // sementara: hapus dari dummy list
-                dummyResources.removeWhere((item) => item.id == r.id);
-              });
+              await _deleteResource(r);
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
@@ -382,7 +461,52 @@ class _ResourcesPageState extends State<ResourcesPage> {
     );
   }
 
-  /// Handle bookmark toggle for a resource
+  Future<void> _deleteResource(ResourcesEntry resource) async {
+    final request = _lastRequest ?? context.read<CookieRequest>();
+
+    if (!_isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Admin account required to delete')),
+      );
+      return;
+    }
+
+    if (!request.loggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to delete resources')),
+      );
+      return;
+    }
+
+    final url = _joinBase('resources/api/delete/${resource.id}/');
+    try {
+      final response = await request.postJson(url, jsonEncode({}));
+      final success = response is Map<String, dynamic> &&
+          (response['status'] == 'deleted' || response['status'] == 'success');
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Resource deleted')),
+        );
+        _refresh();
+      } else {
+        final reason = response is Map<String, dynamic> && response['status'] != null
+            ? response['status'].toString()
+            : 'Unknown error';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $reason')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    }
+  }
+
   Future<void> _toggleBookmark(ResourcesEntry resource) async {
     final request = context.read<CookieRequest>();
 
@@ -449,9 +573,7 @@ class _ResourcesSection extends StatelessWidget {
             horizontalPadding: 14,
             verticalPadding: 4,
           ),
-
           const SizedBox(height: 12),
-
           SizedBox(
             height: 220,
             child: ListView.separated(
@@ -460,7 +582,6 @@ class _ResourcesSection extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
                 final r = resources[index];
-
                 return SizedBox(
                   width: 276,
                   child: ResourcesCard(

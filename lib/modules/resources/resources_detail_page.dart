@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_embed/youtube_player_embed.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:souline_mobile/modules/resources/widgets/level_badge.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/resources_entry.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 class ResourceDetailPage extends StatefulWidget {
@@ -21,6 +22,107 @@ class ResourceDetailPage extends StatefulWidget {
 }
 
 class _ResourceDetailPageState extends State<ResourceDetailPage> {
+  late String _videoId;
+  YoutubePlayerController? _playerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoId = widget.resource.videoId;
+    _configurePlayer();
+  }
+
+  @override
+  void didUpdateWidget(covariant ResourceDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.resource.id != widget.resource.id) {
+      _videoId = widget.resource.videoId;
+      _configurePlayer();
+    }
+  }
+
+  void _configurePlayer() {
+    _playerController?.dispose();
+
+    if (kIsWeb || _videoId.isEmpty) {
+      _playerController = null;
+      return;
+    }
+
+    _playerController = YoutubePlayerController(
+      initialVideoId: _videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        enableCaption: true,
+        controlsVisibleAtStart: true,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _playerController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openOnYoutube(String url) async {
+    final fallback = _videoId.isNotEmpty ? 'https://www.youtube.com/watch?v=$_videoId' : '';
+    final candidate = url.trim().isNotEmpty ? url : fallback;
+    final uri = Uri.tryParse(candidate);
+    if (uri == null) return;
+    final launchMode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+    if (!await launchUrl(uri, mode: launchMode)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open YouTube')),
+      );
+    }
+  }
+
+  Widget _buildVideoPlayer(ResourcesEntry resource) {
+    if (kIsWeb) {
+      return Container(
+        height: 220,
+        color: Colors.black12,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Video playback is not supported on the Web preview.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => _openOnYoutube(resource.youtubeUrl),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Open on YouTube'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_playerController == null) {
+      return _VideoFallback(
+        onOpenYoutube: () => _openOnYoutube(resource.youtubeUrl),
+      );
+    }
+
+    return YoutubePlayerBuilder(
+      player: YoutubePlayer(
+        controller: _playerController!,
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: AppColors.orange,
+      ),
+      builder: (context, player) => player,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final resource = widget.resource;
@@ -118,30 +220,7 @@ class _ResourceDetailPageState extends State<ResourceDetailPage> {
                  // YOUTUBE VIDEO
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: kIsWeb
-                        ? Container(
-                            height: 200,
-                            color: Colors.black12,
-                            alignment: Alignment.center,
-                            child: const Text(
-                              'Video playback not supported on Web',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 14,
-                              ),
-                            ),
-                          )
-                        : YoutubePlayerEmbed(
-                            key: ValueKey(resource.videoId),
-                            videoId: resource.videoId,
-                            aspectRatio: 16 / 9,
-                            autoPlay: false,
-                            mute: false,
-                            enabledShareButton: false,
-                            hidenChannelImage: true,
-                            hidenVideoControls: false,
-                          ),
+                    child: _buildVideoPlayer(resource),
                   ),
 
                   const SizedBox(height: 20),
@@ -251,12 +330,16 @@ class _MiniResourceCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               child: Stack(
                 children: [
+                  if (resource.thumbnailUrl.isNotEmpty)
                   Image.network(
                     resource.thumbnailUrl,
-                    width: 260,
-                    height: 140,
-                    fit: BoxFit.cover,
-                  ),
+                      width: 260,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const _MiniThumbnailFallback(),
+                    )
+                  else
+                    const _MiniThumbnailFallback(),
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withOpacity(0.12),
@@ -317,5 +400,54 @@ class _MiniResourceCard extends StatelessWidget {
   }
 }
 
+class _MiniThumbnailFallback extends StatelessWidget {
+  const _MiniThumbnailFallback();
 
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      height: 140,
+      color: const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: const Icon(Icons.image, color: Color(0xFF94A3B8)),
+    );
+  }
+}
 
+class _VideoFallback extends StatelessWidget {
+  final VoidCallback onOpenYoutube;
+
+  const _VideoFallback({
+    required this.onOpenYoutube,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black12,
+      height: 200,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Video player configuration error.',
+            style: TextStyle(
+              color: AppColors.darkBlue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onOpenYoutube,
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open YouTube'),
+          ),
+        ],
+      ),
+    );
+  }
+}

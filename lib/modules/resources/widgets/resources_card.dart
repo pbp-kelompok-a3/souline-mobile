@@ -43,12 +43,16 @@ class ResourcesCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Image.network(
-                    resource.thumbnailUrl,
-                    width: double.infinity,
-                    height: 155,
-                    fit: BoxFit.cover,
-                  ),
+                  if (resource.thumbnailUrl.isNotEmpty)
+                    Image.network(
+                      resource.thumbnailUrl,
+                      width: double.infinity,
+                      height: 155,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _ThumbnailFallback(height: 155),
+                    )
+                  else
+                    const _ThumbnailFallback(height: 155),
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withOpacity(0.15),
@@ -224,6 +228,22 @@ class _AdminPillButton extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ThumbnailFallback extends StatelessWidget {
+  final double height;
+  const _ThumbnailFallback({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: height,
+      color: const Color(0xFFE5E7EB),
+      alignment: Alignment.center,
+      child: const Icon(Icons.image_not_supported, color: Color(0xFF94A3B8)),
     );
   }
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/resources_entry.dart';
+import 'resources_service.dart';
 
 class ResourceFormPage extends StatefulWidget {
   final ResourcesEntry? initialResource; // null = ADD, ada = EDIT
@@ -72,20 +76,39 @@ class _ResourceFormPageState extends State<ResourceFormPage> {
 
     setState(() => _isSubmitting = true);
 
-    try {
-      final payload = {
-        "title": _titleC.text.trim(),
-        "description": _descC.text.trim(),
-        "youtube_url": _youtubeUrlC.text.trim(),
-        "level": _level,
-      };
+    final request = context.read<CookieRequest>();
+    final service = ResourcesService(request);
 
-      // TODO: panggil API ADD/EDIT kamu di sini
-      // - Add: POST /resources/api/add/
-      // - Edit: POST/PUT /resources/api/edit/<id>/
+    try {
+      final title = _titleC.text.trim();
+      final desc = _descC.text.trim();
+      final url = _youtubeUrlC.text.trim();
+
+      if (isEdit) {
+        await service.update(
+          id: widget.initialResource!.id,
+          title: title,
+          description: desc,
+          youtubeUrl: url,
+          level: _level,
+        );
+      } else {
+        await service.create(
+          title: title,
+          description: desc,
+          youtubeUrl: url,
+          level: _level,
+        );
+      }
 
       if (!mounted) return;
-      Navigator.pop(context, true); // return true biar page sebelumnya bisa refresh
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isEdit ? 'Resource updated' : 'Resource created'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

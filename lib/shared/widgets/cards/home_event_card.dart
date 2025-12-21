@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../models/event_model.dart';
+import '../../../modules/studio/studio_service.dart';
 
 class HomeEventCard extends StatelessWidget {
   final EventModel event;
@@ -27,7 +28,7 @@ class HomeEventCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -41,16 +42,7 @@ class HomeEventCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(16),
               ),
-              child: posterUrl.isNotEmpty
-                  ? Image.network(
-                      posterUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildPlaceholder(),
-                    )
-                  : _buildPlaceholder(),
+              child: _buildImage(),
             ),
 
             // Event info
@@ -72,7 +64,10 @@ class HomeEventCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     DateFormat('dd MMM yyyy').format(event.date),
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -85,12 +80,49 @@ class HomeEventCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildImage() {
+    final url = proxiedImageUrl(posterUrl);
+    final bool isValidUrl = url.startsWith('http');
+
+    if (!isValidUrl) {
+      return _buildPlaceholder();
+    }
+
+    return Image.network(
+      url,
+      height: 120,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _buildPlaceholder(isError: true),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: 120,
+          width: double.infinity,
+          color: AppColors.teal.withOpacity(0.1),
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaceholder({bool isError = false}) {
     return Container(
       height: 120,
       width: double.infinity,
-      color: AppColors.teal.withValues(alpha: 0.3),
-      child: const Icon(Icons.event, size: 40, color: AppColors.darkBlue),
+      color: const Color(0xFFEBEBEB),
+      child: Icon(
+        isError ? Icons.broken_image : Icons.event,
+        size: 40,
+        color: Colors.grey,
+      ),
     );
   }
 }

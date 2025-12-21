@@ -4,7 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/studio_entry.dart';
+import '../../shared/models/event_model.dart';
 import '../../shared/widgets/navigation_bar.dart';
+import '../../shared/widgets/cards/home_event_card.dart';
+import '../events/events_service.dart';
+import '../events/events_detail.dart';
 import 'studio_form_page.dart';
 import 'studio_service.dart';
 
@@ -26,11 +30,30 @@ class StudioDetailPage extends StatefulWidget {
 
 class _StudioDetailPageState extends State<StudioDetailPage> {
   late Studio _studio;
+  Future<List<EventModel>>? _eventsFuture;
 
   @override
   void initState() {
     super.initState();
     _studio = widget.studio;
+    _eventsFuture = _fetchStudioEvents();
+  }
+
+  Future<List<EventModel>> _fetchStudioEvents() async {
+    final request = context.read<CookieRequest>();
+    // Fetch all events for now as per instructions (client-side filtering)
+    final service = EventService(request, AppConstants.baseUrl);
+    try {
+      final allEvents = await service.fetchEvents();
+      // Filter events where location_id matches this studio's ID
+      final studioEvents = allEvents.where((e) {
+        return e.locationId == _studio.id;
+      }).toList();
+      return studioEvents;
+    } catch (e) {
+      debugPrint('Error fetching studio events: $e');
+      return [];
+    }
   }
 
   Future<void> _openGoogleMaps() async {
@@ -227,7 +250,10 @@ class _StudioDetailPageState extends State<StudioDetailPage> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildInfoRow('Phone', _studio.nomorTelepon),
+                                child: _buildInfoRow(
+                                  'Phone',
+                                  _studio.nomorTelepon,
+                                ),
                               ),
                               IconButton(
                                 icon: const Icon(
@@ -282,7 +308,7 @@ class _StudioDetailPageState extends State<StudioDetailPage> {
             child: FloatingNavigationBar(currentIndex: 1),
           ),
         ],
-      )
+      ),
     );
   }
 
@@ -442,40 +468,90 @@ class _StudioDetailPageState extends State<StudioDetailPage> {
         ),
         const SizedBox(height: 16),
 
-        // TODO: Placeholder for events
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.teal.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.event_available,
-                size: 48,
-                color: AppColors.textMuted.withOpacity(0.5),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'No events scheduled',
-                style: TextStyle(fontSize: 16, color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Check back later for upcoming events',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textMuted.withOpacity(0.7),
+        FutureBuilder<List<EventModel>>(
+          future: _eventsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Text('Error loading events: ${snapshot.error}'),
+              );
+            }
+
+            final events = snapshot.data ?? [];
+            if (events.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.teal.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.event_available,
+                      size: 48,
+                      color: AppColors.textMuted.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No events scheduled',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Check back later for upcoming events',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textMuted.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return SizedBox(
+              height: 200,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: events.length,
+                itemBuilder: (context, index) {
+                  final event = events[index];
+                  return HomeEventCard(
+                    event: event,
+                    posterUrl: event.poster,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EventDetailPage(
+                            event: event,
+                            baseUrl: AppConstants.baseUrl,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
