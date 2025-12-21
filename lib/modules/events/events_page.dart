@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http; 
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/left_drawer.dart';
 import '../../shared/widgets/navigation_bar.dart';
@@ -12,7 +13,6 @@ import 'events_detail.dart';
 import 'add_events.dart';
 import 'widgets/events_card.dart';
 import 'widgets/events_filter.dart';
-import 'events_service.dart';
 
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
@@ -27,11 +27,24 @@ class _EventsPageState extends State<EventsPage> {
   late Future<List<EventModel>> futureEvents;
   bool isFilterVisible = false;
   String _searchQuery = '';
+  String _authToken = '';
 
   @override
   void initState() {
     super.initState();
     futureEvents = fetchEvents();
+    _loadToken();
+  }
+
+  Future<void> _loadToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() => _authToken = prefs.getString('auth_token') ?? '');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _authToken = '');
+    }
   }
 
   String joinBase(String path) {
@@ -47,7 +60,6 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Future<List<EventModel>> fetchEvents() async {
-    final request = context.read<CookieRequest>();
     final url = joinBase('events/json/');
     final headers = <String, String>{'Content-Type': 'application/json'};
 
@@ -76,14 +88,13 @@ class _EventsPageState extends State<EventsPage> {
 
     final url = joinBase('events/api/$id/delete/');
     final headers = <String, String>{'Content-Type': 'application/json'};
-    final request = context.read<CookieRequest>();
-
-    if (request.loggedIn) {
-      final username = request.cookies['username'] ?? '';
-      headers['Authorization'] = 'Token ${username}';
+    if (_authToken.isNotEmpty) {
+      headers['Authorization'] = 'Token $_authToken';
     }
 
     final resp = await http.delete(Uri.parse(url), headers: headers);
+    if (!mounted) return;
+
     if (resp.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event deleted')));
       setState(() {

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../shared/models/event_model.dart';
 

@@ -32,7 +32,7 @@ class EventCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFF0ECE5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 6),
           )
@@ -103,7 +103,7 @@ class EventCard extends StatelessWidget {
                         );
                       },
                       child: Text(
-                        event.location ?? 'Location',
+                        event.location,
                         style: const TextStyle(
                           color: AppColors.orange,
                           fontWeight: FontWeight.w600,

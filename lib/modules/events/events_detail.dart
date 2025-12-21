@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,6 +70,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final resp = await http.delete(Uri.parse(url), headers: headers);
     setState(() => _isDeleting = false);
 
+    if (!mounted) return;
+
     if (resp.statusCode == 200) {
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event deleted')));
@@ -127,12 +128,12 @@ class _EventDetailPageState extends State<EventDetailPage> {
             if (isOwner)
               ElevatedButton(
                 onPressed: () {
-                  // navigate to Edit 
+                  final navigator = Navigator.of(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => AddEventPage(editEvent: widget.event)),
                   ).then((val) {
-                    if (val == true) Navigator.pop(context, true);
+                    if (val == true && navigator.mounted) navigator.pop(true);
                   });
                 },
                 child: const Text('Edit'),

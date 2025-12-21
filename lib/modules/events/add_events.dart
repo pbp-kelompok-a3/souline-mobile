@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
@@ -77,6 +74,7 @@ class _AddEventPageState extends State<AddEventPage> {
                   'Unexpected content-type: $ct (body starts: ${resp.body.substring(0, resp.body.length > 80 ? 80 : resp.body.length)})');
             }
             final data = studioEntryFromJson(resp.body);
+            if (!mounted) return;
             setState(() => _studioEntry = data);
             got = true;
             break;
@@ -104,7 +102,7 @@ class _AddEventPageState extends State<AddEventPage> {
           }
           if (pick != null) break;
         }
-        if (pick != null) setState(() => _selectedStudio = pick);
+        if (pick != null && mounted) setState(() => _selectedStudio = pick);
       }
     } catch (e) {
       final msg = e.toString();
@@ -136,36 +134,55 @@ class _AddEventPageState extends State<AddEventPage> {
 
     setState(() => _loading = true);
 
-    final uri = widget.editEvent == null
-        ? Uri.parse(joinBase('events/api/create/'))
-        : Uri.parse(joinBase('events/api/${widget.editEvent!.id}/edit/'));
+    try {
+      final uri = widget.editEvent == null
+          ? Uri.parse(joinBase('events/api/create/'))
+          : Uri.parse(joinBase('events/api/${widget.editEvent!.id}/edit/'));
 
-    final request = http.MultipartRequest('POST', uri);
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['name'] = _nameCtrl.text.trim();
+      request.fields['date'] = _dateCtrl.text.trim();
+      request.fields['description'] = _descCtrl.text.trim();
+      request.fields['location'] = _selectedStudio!.namaStudio;
 
-    request.fields['name'] = _nameCtrl.text.trim();
-    request.fields['date'] = _dateCtrl.text.trim();
-    request.fields['description'] = _descCtrl.text.trim();
-    request.fields['location'] = _selectedStudio!.namaStudio;
+      if (_imageUrlCtrl.text.trim().isNotEmpty) {
+        request.fields['poster_url'] = _imageUrlCtrl.text.trim();
+      }
 
-    // Image opsional
-    if (_imageUrlCtrl.text.trim().isNotEmpty) {
-      request.fields['poster_url'] = _imageUrlCtrl.text.trim();
-    }
+      if (authToken.isNotEmpty) {
+        request.headers['Authorization'] = 'Token $authToken';
+      }
+      request.headers['Accept'] = 'application/json';
 
-    if (authToken.isNotEmpty) request.headers['Authorization'] = 'Token $authToken';
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-      if ((widget.editEvent == null && resp.statusCode == 201) ||
-          (widget.editEvent != null && resp.statusCode == 200)) {
+      if (!mounted) return;
+
+      final success = widget.editEvent == null
+          ? response.statusCode == 201
+          : response.statusCode == 200;
+
+      if (success) {
         Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.editEvent == null ? 'Event added' : 'Event updated'),
+          ),
+        );
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: ${resp.statusCode} — ${resp.body}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: ${response.statusCode} — ${response.body}')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -218,7 +235,7 @@ class _AddEventPageState extends State<AddEventPage> {
               _studioEntry == null
                   ? const Center(child: CircularProgressIndicator())
                   : DropdownButtonFormField<Studio>(
-                      value: _selectedStudio,
+                      initialValue: _selectedStudio,
                       decoration: const InputDecoration(labelText: 'Location'),
                       items: _studioEntry!.cities
                           .expand((city) => city.studios)
