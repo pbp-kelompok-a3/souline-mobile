@@ -99,14 +99,15 @@ class EventCard extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const StudioPage()),
+                          MaterialPageRoute(
+                            builder: (_) => StudioPage(),
+                          ),
                         );
                       },
                       child: Text(
-                        event.location ?? 'Location',
+                        event.location,
                         style: const TextStyle(
                           color: AppColors.orange,
-                          fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
                         ),
                       ),

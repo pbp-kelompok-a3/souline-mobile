@@ -1,4 +1,3 @@
-
 class Review {
   final String username;
   final String location;
@@ -12,13 +11,13 @@ class Review {
     required this.ratingValue,
   });
 
-  // Constructor untuk parsing JSON dari Django
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
-      username: json['username'] ?? 'Unknown',
-      location: json['location'] ?? 'N/A',
-      reviewText: json['review_text'] ?? 'No review text.',
-      ratingValue: (json['rating_value'] as num).toDouble(),
+      // Sesuaikan key dengan JSON Django: 'review_text' dan 'rating_value'
+      username: (json['username'] ?? 'Unknown').toString(),
+      location: (json['location'] ?? 'N/A').toString(),
+      reviewText: (json['review_text'] ?? 'No review text.').toString(),
+      ratingValue: (json['rating_value'] as num? ?? 0.0).toDouble(),
     );
   }
 }
@@ -31,7 +30,6 @@ class Product {
   final String thumbnail;
   final double rating;
   final String link;
-  final String? adminNotes;
   final List<Review> timelineReviews;
 
   Product({
@@ -42,38 +40,41 @@ class Product {
     required this.thumbnail,
     required this.rating,
     required this.link,
-    this.adminNotes,
     required this.timelineReviews,
   });
 
-  // Constructor untuk parsing JSON dari Django
   factory Product.fromJson(Map<String, dynamic> json) {
-    var reviewsList = json['reviews'] as List? ?? [];
-    List<Review> reviews = reviewsList.map((i) => Review.fromJson(i as Map<String, dynamic>)).toList();
-
     return Product(
       id: json['id'] ?? 0,
-      // Mengambil data dari key yang sesuai dengan serialisasi Django
-      name: json['name'] ?? 'N/A',
-      description: json['description'] ?? 'No description.',
-      tag: json['tag'] ?? 'Uncategorized',
-      thumbnail: json['thumbnail'] ?? 'https://via.placeholder.com/150',
+      name: (json['name'] ?? 'N/A').toString(),
+      description: (json['description'] ?? '').toString(),
+      tag: (json['tag'] ?? 'Uncategorized').toString(),
+      thumbnail: (json['thumbnail'] ?? '').toString(),
       rating: (json['rating'] as num? ?? 0.0).toDouble(),
-      link: json['link'] ?? 'http://example.com',
-      adminNotes: json['admin_notes'],
-      timelineReviews: reviews,
+      link: (json['link'] ?? '').toString(),
+      // Ambil dari key 'reviews' sesuai JSON yang kamu kirim tadi
+      timelineReviews: (json['reviews'] as List? ?? [])
+          .map((i) => Review.fromJson(i as Map<String, dynamic>))
+          .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      // POST/PUT payload harus sesuai dengan field di SportswearBrandForm Django
-      'brand_name': name,
+      'id': id,
+      'name': name,
       'description': description,
-      'category_tag': tag,
-      'thumbnail_url': thumbnail,
-      'average_rating': rating,
+      'tag': tag,
+      'thumbnail': thumbnail,
+      'rating': rating,
       'link': link,
+      // Tambahin ini kalau perlu simpan reviews juga
+      'reviews': timelineReviews.map((v) => {
+        'username': v.username,
+        'location': v.location,
+        'review_text': v.reviewText,
+        'rating_value': v.ratingValue,
+      }).toList(),
     };
   }
 }
