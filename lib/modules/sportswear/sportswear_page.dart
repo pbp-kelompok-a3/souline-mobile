@@ -12,7 +12,6 @@ import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/user/bookmarks_service.dart';
 import 'sportswear_service.dart';
 
-//  WIDGET HALAMAN UTAMA
 class SportswearPage extends StatefulWidget {
   const SportswearPage({super.key});
 
@@ -21,34 +20,57 @@ class SportswearPage extends StatefulWidget {
 }
 
 class _SportswearPageState extends State<SportswearPage> {
-  final SportswearService _service = SportswearService();
+  late SportswearService _service;
   String _searchQuery = '';
   String? _selectedTagFilter;
-  late Future<List<Product>> _brandsFuture;
-  final List<String> _availableTags = ['All', 'Yoga', 'Pilates'];
 
+  List<Product> _brands = [];
+  bool _isLoading = true;
+
+  final List<String> _availableTags = ['All', 'Yoga', 'Pilates'];
   bool _isFilterOpen = false;
+
+  bool get isAdmin {
+    final request = context.read<CookieRequest>();
+    final String username = request.jsonData['username'] ?? '';
+    final bool isStaff = request.jsonData['is_staff'] ?? false;
+    return isStaff || username == 'soulinestaff';
+  }
 
   @override
   void initState() {
     super.initState();
+    _service = SportswearService(context.read<CookieRequest>());
     _loadBrands();
   }
 
-  void _loadBrands() {
-    setState(() {
-      _brandsFuture = _service.fetchBrands(
-        tag: _selectedTagFilter,
+  Future<void> _loadBrands() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final response = await _service.fetchBrands(
+        tag: (_selectedTagFilter == 'All') ? null : _selectedTagFilter,
         query: _searchQuery,
       );
-    });
+
+      if (mounted) {
+        response.sort((a, b) => b.rating.compareTo(a.rating));
+
+        setState(() {
+          _brands = response;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _onSearchChanged(String value) {
     setState(() {
       _searchQuery = value;
-      _loadBrands();
     });
+    _loadBrands();
   }
 
   @override
@@ -63,8 +85,7 @@ class _SportswearPageState extends State<SportswearPage> {
               AppHeader(
                 title: 'Sportswear',
                 onSearchChanged: _onSearchChanged,
-                onFilterPressed: () =>
-                    setState(() => _isFilterOpen = !_isFilterOpen),
+                onFilterPressed: () => setState(() => _isFilterOpen = !_isFilterOpen),
                 showDrawerButton: true,
               ),
               const SizedBox(height: 38),
@@ -78,163 +99,140 @@ class _SportswearPageState extends State<SportswearPage> {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.darkBlue,
+                        color: AppColors.darkBlue
                       ),
                     ),
-                    const Text(
-                      'Top Rated',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.orange,
-                      ),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          size: 14,
+                          color: AppColors.orange
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Top Rated',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.orange,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
+
               Expanded(
-                child: FutureBuilder<List<Product>>(
-                  future: _brandsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.darkBlue,
-                        ),
-                      );
-                    }
-                    final brands = snapshot.data ?? [];
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 120),
-                      itemCount: brands.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: _ProductCard(
-                            product: brands[index],
-                            onTapDetails: () async {
-                              setState(() => _isFilterOpen = false);
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SportswearDetailPage(
-                                    product: brands[index],
-                                  ),
-                                ),
-                              );
-                              if (result == true) _loadBrands();
-                            },
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.darkBlue))
+                  : _brands.isEmpty
+                    ? const Center(child: Text("No brands found."))
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 120),
+                        itemCount: _brands.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: _ProductCard(
+                              product: _brands[index],
+                              onTapDetails: () async {
+                                setState(() => _isFilterOpen = false);
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => SportswearDetailPage(product: _brands[index])),
+                                );
+                                if (result == true) _loadBrands();
+                              },
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: FloatingNavigationBar(currentIndex: 0),
-          ),
-          Positioned(
-            right: 25,
-            bottom: 85,
-            child: FloatingActionButton(
-              onPressed: () {
-                setState(() => _isFilterOpen = false);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SportswearBrandFormPage(),
-                  ),
-                ).then((_) => _loadBrands());
-              },
-              backgroundColor: AppColors.orange,
-              child: const Icon(Icons.add, color: AppColors.textLight),
-            ),
-          ),
-          if (_isFilterOpen)
+          const Positioned(bottom: 0, left: 0, right: 0, child: FloatingNavigationBar(currentIndex: 0)),
+
+          if (isAdmin)
             Positioned(
-              top: 190,
-              left: 20,
-              right: 20,
-              child: Material(
-                elevation: 10,
-                borderRadius: BorderRadius.circular(25),
-                color: Colors.white,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Filter by Category:',
-                        style: TextStyle(
-                          color: AppColors.darkBlue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 10.0,
-                        runSpacing: 10.0,
-                        children: _availableTags.map((tag) {
-                          final bool isSelected =
-                              (_selectedTagFilter ?? 'All') == tag;
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedTagFilter = tag;
-                                _isFilterOpen = false;
-                                _loadBrands();
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.darkBlue
-                                    : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.darkBlue,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
+              right: 25,
+              bottom: 85,
+              child: FloatingActionButton(
+                onPressed: () {
+                  setState(() => _isFilterOpen = false);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SportswearBrandFormPage())
+                  ).then((_) => _loadBrands());
+                },
+                backgroundColor: AppColors.orange,
+                child: const Icon(Icons.add, color: AppColors.textLight),
               ),
             ),
+
+          if (_isFilterOpen)
+            _buildFilterOverlay(),
         ],
       ),
     );
   }
+
+  Widget _buildFilterOverlay() {
+    return Positioned(
+      top: 190,
+      left: 20,
+      right: 20,
+      child: Material(
+        elevation: 10,
+        borderRadius: BorderRadius.circular(25),
+        color: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Filter by Category:', style: TextStyle(color: AppColors.darkBlue, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10.0,
+                runSpacing: 10.0,
+                children: _availableTags.map((tag) {
+                  final bool isSelected = (_selectedTagFilter ?? 'All') == tag;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedTagFilter = (tag == 'All') ? null : tag;
+                        _isFilterOpen = false;
+                      });
+                      _loadBrands();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.darkBlue : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Text(tag, style: TextStyle(color: isSelected ? Colors.white : AppColors.darkBlue, fontWeight: FontWeight.bold)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
 
 class _ProductCard extends StatefulWidget {
   final Product product;
@@ -277,10 +275,7 @@ class __ProductCardState extends State<_ProductCard> {
 
     if (!request.loggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please login to add a bookmark'),
-          backgroundColor: AppColors.darkBlue,
-        ),
+        const SnackBar(content: Text('Please login to add a bookmark'), backgroundColor: AppColors.darkBlue),
       );
       return;
     }
@@ -301,11 +296,10 @@ class __ProductCardState extends State<_ProductCard> {
         _isToggling = false;
       });
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            _isBookmarked ? 'Brand bookmarked' : 'Bookmark removed',
-          ),
+          content: Text(_isBookmarked ? 'Brand bookmarked' : 'Bookmark removed'),
           backgroundColor: AppColors.darkBlue,
           duration: const Duration(seconds: 1),
         ),
@@ -323,9 +317,7 @@ class __ProductCardState extends State<_ProductCard> {
     final Uri url = Uri.parse(urlString);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not launch $urlString')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch $urlString')));
       }
     }
   }
@@ -336,13 +328,9 @@ class __ProductCardState extends State<_ProductCard> {
       if (rating >= i) {
         stars.add(const Icon(Icons.star, color: AppColors.orange, size: 14));
       } else if (rating >= i - 0.5) {
-        stars.add(
-          const Icon(Icons.star_half, color: AppColors.orange, size: 14),
-        );
+        stars.add(const Icon(Icons.star_half, color: AppColors.orange, size: 14));
       } else {
-        stars.add(
-          const Icon(Icons.star_border, color: AppColors.orange, size: 14),
-        );
+        stars.add(const Icon(Icons.star_border, color: AppColors.orange, size: 14));
       }
     }
     return stars;
@@ -373,14 +361,8 @@ class __ProductCardState extends State<_ProductCard> {
                     height: 100,
                     fit: BoxFit.cover,
                     errorBuilder: (ctx, err, stack) => Container(
-                      width: 100,
-                      height: 100,
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.image,
-                        size: 30,
-                        color: Colors.grey,
-                      ),
+                      width: 100, height: 100, color: Colors.grey[200],
+                      child: const Icon(Icons.image, size: 30, color: Colors.grey),
                     ),
                   ),
                 ),
@@ -395,22 +377,16 @@ class __ProductCardState extends State<_ProductCard> {
                           Expanded(
                             child: Text(
                               product.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkBlue,
-                              ),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkBlue),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           GestureDetector(
                             onTap: _toggleBookmark,
                             child: Icon(
-                              _isBookmarked
-                                  ? Icons.bookmark
-                                  : Icons.bookmark_border,
+                              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
                               color: AppColors.darkBlue,
-                              size: 20,
+                              size: 20
                             ),
                           ),
                         ],
@@ -419,10 +395,7 @@ class __ProductCardState extends State<_ProductCard> {
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
                         child: Text(
                           product.description,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.darkBlue.withOpacity(0.7),
-                          ),
+                          style: TextStyle(fontSize: 12, color: AppColors.darkBlue.withOpacity(0.7)),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -435,29 +408,18 @@ class __ProductCardState extends State<_ProductCard> {
                             const SizedBox(width: 4),
                             Text(
                               '${product.rating.toStringAsFixed(1)}/5.0',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkBlue,
-                                fontSize: 12,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBlue, fontSize: 12),
                             ),
                             const SizedBox(width: 10),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: _getCategoryColor(product.tag),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
                                 product.tag,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -470,32 +432,17 @@ class __ProductCardState extends State<_ProductCard> {
                             if (product.link.isNotEmpty) {
                               _launchURL(product.link);
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('No link available'),
-                                ),
-                              );
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No link available')));
                             }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.darkBlue,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Click here!',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                          child: const Text('Click here!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
                       ),
                     ],
@@ -513,14 +460,7 @@ class __ProductCardState extends State<_ProductCard> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Details',
-                      style: TextStyle(
-                        color: AppColors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    Text('Details', style: TextStyle(color: AppColors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
                     SizedBox(width: 2),
                     Icon(Icons.north_east, color: AppColors.orange, size: 14),
                   ],
@@ -535,15 +475,10 @@ class __ProductCardState extends State<_ProductCard> {
               });
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 10.0,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12),
-                ),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                 border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Column(
@@ -552,44 +487,21 @@ class __ProductCardState extends State<_ProductCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Timeline Reviews',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppColors.darkBlue,
-                        ),
-                      ),
-                      Icon(
-                        _showReviews
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: AppColors.darkBlue,
-                        size: 20,
-                      ),
+                      const Text('Timeline Reviews', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.darkBlue)),
+                      Icon(_showReviews ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: AppColors.darkBlue, size: 20),
                     ],
                   ),
                   if (_showReviews)
                     if (reviews.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'No reviews available.',
-                          style: TextStyle(
-                            color: AppColors.darkBlue.withOpacity(0.6),
-                            fontSize: 12,
-                          ),
-                        ),
+                        child: Text('No reviews available.', style: TextStyle(color: AppColors.darkBlue.withOpacity(0.6), fontSize: 12)),
                       )
                     else
-                      ...reviews
-                          .map(
-                            (review) => Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: _buildReviewItem(review),
-                            ),
-                          )
-                          .toList(),
+                      ...reviews.map((review) => Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: _buildReviewItem(review),
+                      )).toList(),
                 ],
               ),
             ),
@@ -616,48 +528,20 @@ class __ProductCardState extends State<_ProductCard> {
               CircleAvatar(
                 radius: 12,
                 backgroundColor: AppColors.darkBlue.withOpacity(0.2),
-                child: const Icon(
-                  Icons.person,
-                  color: AppColors.darkBlue,
-                  size: 16,
-                ),
+                child: const Icon(Icons.person, color: AppColors.darkBlue, size: 16)
               ),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    review.username,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: AppColors.darkBlue,
-                    ),
-                  ),
+                  Text(review.username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.darkBlue)),
                   Row(
                     children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 10,
-                        color: AppColors.darkBlue.withOpacity(0.6),
-                      ),
-                      Text(
-                        review.location,
-                        style: TextStyle(
-                          color: AppColors.darkBlue.withOpacity(0.6),
-                          fontSize: 10,
-                        ),
-                      ),
+                      Icon(Icons.location_on, size: 10, color: AppColors.darkBlue.withOpacity(0.6)),
+                      Text(review.location, style: TextStyle(color: AppColors.darkBlue.withOpacity(0.6), fontSize: 10)),
                       const SizedBox(width: 6),
                       const Icon(Icons.star, size: 10, color: AppColors.orange),
-                      Text(
-                        review.ratingValue.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: AppColors.darkBlue,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(review.ratingValue.toStringAsFixed(1), style: const TextStyle(color: AppColors.darkBlue, fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],
@@ -665,10 +549,7 @@ class __ProductCardState extends State<_ProductCard> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            review.reviewText,
-            style: const TextStyle(fontSize: 12, color: AppColors.darkBlue),
-          ),
+          Text(review.reviewText, style: const TextStyle(fontSize: 12, color: AppColors.darkBlue)),
         ],
       ),
     );
