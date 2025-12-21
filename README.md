@@ -9,7 +9,7 @@
 - Farrel Rifqi Bagaskoro - 2406406780
 
 ## Tautan APK
-
+https://app.bitrise.io/app/801dd440-8a30-446c-b14f-3645e5d66a5f/installable-artifacts/ce403315dfeb0ae3/public-install-page/eb64f1bc5a276da55951f4b31ad6e9de
 
 ## Deskripsi aplikasi
 Nama “SOULINE” diambil dari kata “SOUL” yang artinya jiwa, dan “LINE” yang artinya garis. Dua kata ini relevan dengan olahraga Yoga & Pilates yang mementingkan ketenangan jiwa dan keseimbangan. Pengucapan “SOULINE” juga mirip dengan kata ‘SOLAINE” dalam bahasa Prancis yang dapat diartikan sebagai Brightness atau Positivity. Aplikasi ini akan membantu pengguna untuk mencari dan menentukan studio olahraga berdasarkan area yang mereka pilih. Pengguna juga dapat melihat rekomendasi sportswear dan resources dalam mempelajari Yoga & Pilates. Selain itu, pengguna dapat berbagi pengalaman dengan komunitas yang dapat meningkatkan semangat dalam berolahraga Yoga atau Pilates. 
