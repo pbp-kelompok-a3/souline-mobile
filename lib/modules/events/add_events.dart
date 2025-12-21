@@ -1,12 +1,11 @@
-import 'dart:convert';
-import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/event_model.dart';
 import '../../shared/models/studio_entry.dart';
+import '../studio/studio_service.dart';
+import 'events_service.dart';
 
 class AddEventPage extends StatefulWidget {
   final EventModel? editEvent;
@@ -21,78 +20,37 @@ class _AddEventPageState extends State<AddEventPage> {
   final _nameCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController(); // <- untuk URL image opsional
+  final _imageUrlCtrl = TextEditingController();
 
   Studio? _selectedStudio;
   StudioEntry? _studioEntry;
-
   bool _loading = false;
-  String authToken = '';
-
-  String joinBase(String path) {
-    final base = AppConstants.baseUrl;
-    if (base.endsWith('/')) return '$base$path';
-    return '$base/$path';
-  }
 
   @override
   void initState() {
     super.initState();
-    _loadToken();
-    _fetchStudios();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchStudios());
     if (widget.editEvent != null) {
       _nameCtrl.text = widget.editEvent!.name;
-      _dateCtrl.text =
-          widget.editEvent!.date.toIso8601String().substring(0, 10);
+      _dateCtrl.text = widget.editEvent!.date.toIso8601String().substring(
+        0,
+        10,
+      );
       _descCtrl.text = widget.editEvent!.description;
-      _imageUrlCtrl.text = widget.editEvent!.poster; // ambil URL jika ada
+      _imageUrlCtrl.text = widget.editEvent!.poster;
     }
-  }
-
-  Future<void> _loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    authToken = prefs.getString('auth_token') ?? '';
   }
 
   Future<void> _fetchStudios() async {
     try {
-      final candidates = [
-        joinBase('studio/json/'),
-        joinBase('studios/json/'),
-      ];
+      final request = context.read<CookieRequest>();
+      final service = StudioService(request);
+      final entry = await service.fetchStudios();
 
-      http.Response resp;
-      bool got = false;
-      Exception? lastEx;
-      for (final u in candidates) {
-        try {
-          final uri = Uri.parse(u);
-          final headers = <String, String>{'Accept': 'application/json'};
-          if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
-          resp = await http.get(uri, headers: headers);
-          if (resp.statusCode == 200) {
-            final ct = resp.headers['content-type'] ?? '';
-            if (!ct.contains('application/json') && !ct.contains('text/json')) {
-              throw Exception(
-                  'Unexpected content-type: $ct (body starts: ${resp.body.substring(0, resp.body.length > 80 ? 80 : resp.body.length)})');
-            }
-            final data = studioEntryFromJson(resp.body);
-            setState(() => _studioEntry = data);
-            got = true;
-            break;
-          } else {
-            lastEx = Exception('Status ${resp.statusCode} from $u');
-          }
-        } catch (e) {
-          lastEx = Exception('Error fetching $u: $e');
-          continue;
-        }
-      }
+      if (!mounted) return;
+      setState(() => _studioEntry = entry);
 
-      if (!got) {
-        throw lastEx ?? Exception('Failed to fetch studios');
-      }
-
+      // Pre-select studio if editing
       if (widget.editEvent != null && _studioEntry != null) {
         Studio? pick;
         for (var city in _studioEntry!.cities) {
@@ -107,10 +65,10 @@ class _AddEventPageState extends State<AddEventPage> {
         if (pick != null) setState(() => _selectedStudio = pick);
       }
     } catch (e) {
-      final msg = e.toString();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error fetching studios: $msg')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching studios: $e')));
       }
     }
   }
@@ -129,41 +87,55 @@ class _AddEventPageState extends State<AddEventPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStudio == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a studio')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a studio')));
       return;
     }
 
     setState(() => _loading = true);
 
-    final uri = widget.editEvent == null
-        ? Uri.parse(joinBase('events/api/create/'))
-        : Uri.parse(joinBase('events/api/${widget.editEvent!.id}/edit/'));
+    try {
+      final request = context.read<CookieRequest>();
+      final service = EventService(request, AppConstants.baseUrl);
 
-    final request = http.MultipartRequest('POST', uri);
+      bool success;
+      if (widget.editEvent == null) {
+        // Create new event
+        success = await service.createEvent(
+          name: _nameCtrl.text.trim(),
+          date: _dateCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          location: _selectedStudio!.namaStudio,
+          posterUrl: _imageUrlCtrl.text.trim().isNotEmpty
+              ? _imageUrlCtrl.text.trim()
+              : null,
+        );
+      } else {
+        // Update existing event
+        success = await service.updateEvent(
+          eventId: widget.editEvent!.id,
+          name: _nameCtrl.text.trim(),
+          date: _dateCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          location: _selectedStudio!.namaStudio,
+          posterUrl: _imageUrlCtrl.text.trim().isNotEmpty
+              ? _imageUrlCtrl.text.trim()
+              : null,
+        );
+      }
 
-    request.fields['name'] = _nameCtrl.text.trim();
-    request.fields['date'] = _dateCtrl.text.trim();
-    request.fields['description'] = _descCtrl.text.trim();
-    request.fields['location'] = _selectedStudio!.namaStudio;
-
-    // Image opsional
-    if (_imageUrlCtrl.text.trim().isNotEmpty) {
-      request.fields['poster_url'] = _imageUrlCtrl.text.trim();
-    }
-
-    if (authToken.isNotEmpty) request.headers['Authorization'] = 'Token $authToken';
-
-      if ((widget.editEvent == null && resp.statusCode == 201) ||
-          (widget.editEvent != null && resp.statusCode == 200)) {
+      if (success) {
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: ${resp.statusCode} — ${resp.body}')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to save event')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _loading = false);
     }
@@ -185,8 +157,9 @@ class _AddEventPageState extends State<AddEventPage> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-          title: Text(isEdit ? 'Edit Event' : 'Add Event'),
-          backgroundColor: AppColors.cream),
+        title: Text(isEdit ? 'Edit Event' : 'Add Event'),
+        backgroundColor: AppColors.cream,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -196,23 +169,23 @@ class _AddEventPageState extends State<AddEventPage> {
               TextFormField(
                 controller: _imageUrlCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Image URL (optional)',
-                    hintText: 'Enter poster URL'),
+                  labelText: 'Image URL (optional)',
+                  hintText: 'Enter poster URL',
+                ),
               ),
               const SizedBox(height: 20),
               TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Required' : null),
+                controller: _nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _dateCtrl,
                 decoration: const InputDecoration(labelText: 'Date'),
                 readOnly: true,
                 onTap: _pickDate,
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Required' : null,
+                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               _studioEntry == null
@@ -222,19 +195,22 @@ class _AddEventPageState extends State<AddEventPage> {
                       decoration: const InputDecoration(labelText: 'Location'),
                       items: _studioEntry!.cities
                           .expand((city) => city.studios)
-                          .map((studio) => DropdownMenuItem(
-                                value: studio,
-                                child: Text(studio.namaStudio),
-                              ))
+                          .map(
+                            (studio) => DropdownMenuItem(
+                              value: studio,
+                              child: Text(studio.namaStudio),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) => setState(() => _selectedStudio = val),
                       validator: (val) => val == null ? 'Required' : null,
                     ),
               const SizedBox(height: 12),
               TextFormField(
-                  controller: _descCtrl,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Description')),
+                controller: _descCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _loading ? null : _submit,
@@ -243,7 +219,10 @@ class _AddEventPageState extends State<AddEventPage> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : Text(isEdit ? 'Save' : 'Add Event'),
               ),
             ],

@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/modules/timeline/timeline_service.dart';
+import 'package:souline_mobile/modules/events/events_service.dart';
 
 import './core/constants/app_constants.dart';
 import './shared/widgets/left_drawer.dart';
@@ -173,31 +172,16 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoadingEvents = true);
 
     try {
-      // Determine endpoint based on filter
-      String endpoint = 'events/json/';
-      if (_eventFilter == 'soon') {
-        endpoint = 'events/json/soon/';
-      } else if (_eventFilter == 'later') {
-        endpoint = 'events/json/later/';
-      }
-
-      final url = _joinBaseUrl(endpoint);
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final request = context.read<CookieRequest>();
+      final service = EventService(request, AppConstants.baseUrl);
+      final events = await service.fetchEvents(filter: _eventFilter);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        setState(
-          () => _events = data.map((e) => EventModel.fromJson(e)).toList(),
-        );
+      setState(() {
+        _events = events;
         _isLoadingEvents = false;
-      } else {
-        throw Exception('Failed to load events (${response.statusCode})');
-      }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoadingEvents = false);
@@ -216,10 +200,9 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       setState(() {
-        _timelinePosts = entry.results; 
+        _timelinePosts = entry.results;
         _isLoadingTimeline = false;
       });
-
     } catch (e) {
       if (!mounted) return;
 
@@ -557,10 +540,8 @@ class _HomePageState extends State<HomePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StudioDetailPage(
-                    studio: _studios[index],
-                    isAdmin: false,
-                  ),
+                  builder: (_) =>
+                      StudioDetailPage(studio: _studios[index], isAdmin: false),
                 ),
               );
             },
