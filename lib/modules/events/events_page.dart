@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http; 
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/left_drawer.dart';
 import '../../shared/widgets/navigation_bar.dart';
@@ -25,23 +26,12 @@ class _EventsPageState extends State<EventsPage> {
   String selectedDateFilter = 'all';
   late Future<List<EventModel>> futureEvents;
   bool isFilterVisible = false;
-  String currentUsername = '';
-  String authToken = '';
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadAuthInfo().then((_) {
-      futureEvents = fetchEvents();
-      setState(() {});
-    });
-  }
-
-  Future<void> _loadAuthInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    currentUsername = prefs.getString('username') ?? '';
-    authToken = prefs.getString('auth_token') ?? '';
+    futureEvents = fetchEvents();
   }
 
   String joinBase(String path) {
@@ -57,9 +47,9 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Future<List<EventModel>> fetchEvents() async {
+    final request = context.read<CookieRequest>();
     final url = joinBase('events/json/');
     final headers = <String, String>{'Content-Type': 'application/json'};
-    if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
 
     final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
@@ -86,7 +76,12 @@ class _EventsPageState extends State<EventsPage> {
 
     final url = joinBase('events/api/$id/delete/');
     final headers = <String, String>{'Content-Type': 'application/json'};
-    if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
+    final request = context.read<CookieRequest>();
+
+    if (request.loggedIn) {
+      final username = request.cookies['username'] ?? '';
+      headers['Authorization'] = 'Token ${username}';
+    }
 
     final resp = await http.delete(Uri.parse(url), headers: headers);
     if (resp.statusCode == 200) {
@@ -116,6 +111,7 @@ class _EventsPageState extends State<EventsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final request = context.watch<CookieRequest>();
     final headerLocationLabel = selectedCity.isEmpty ? 'All Locations' : selectedCity;
 
     return Scaffold(
@@ -132,7 +128,6 @@ class _EventsPageState extends State<EventsPage> {
                 showDrawerButton: true,
               ),
               const SizedBox(height: 40),
-              // location label
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
@@ -155,7 +150,6 @@ class _EventsPageState extends State<EventsPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              // list area
               Expanded(
                 child: FutureBuilder<List<EventModel>>(
                   future: futureEvents,
@@ -182,7 +176,8 @@ class _EventsPageState extends State<EventsPage> {
                       itemCount: visibleEvents.length,
                       itemBuilder: (context, index) {
                         final event = visibleEvents[index];
-                        final isOwner = currentUsername.isNotEmpty && currentUsername == event.createdBy;
+                        final username = request.cookies['username'] ?? '';
+                        final isOwner = request.loggedIn && username == event.createdBy;
                         return EventCard(
                           event: event,
                           posterUrl: buildPosterUrl(event.poster),
@@ -194,7 +189,7 @@ class _EventsPageState extends State<EventsPage> {
                                 builder: (_) => EventDetailPage(
                                   event: event,
                                   baseUrl: AppConstants.baseUrl,
-                                  currentUsername: currentUsername,
+                                  currentUsername: (request.cookies['username'] ?? '').toString(),
                                 ),
                               ),
                             ).then((_) => setState(() => futureEvents = fetchEvents()));
@@ -230,19 +225,21 @@ class _EventsPageState extends State<EventsPage> {
           const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: FloatingActionButton(
-          backgroundColor: AppColors.orange,
-          child: const Icon(Icons.add, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddEventPage()),
-            ).then((_) => setState(() => futureEvents = fetchEvents()));
-          },
-        ),
-      ),
+      floatingActionButton: request.loggedIn
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: FloatingActionButton(
+                backgroundColor: AppColors.orange,
+                child: const Icon(Icons.add, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddEventPage()),
+                  ).then((_) => setState(() => futureEvents = fetchEvents()));
+                },
+              ),
+            )
+          : null,
     );
   }
 }

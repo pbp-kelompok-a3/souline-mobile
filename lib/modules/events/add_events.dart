@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
@@ -135,35 +137,29 @@ class _AddEventPageState extends State<AddEventPage> {
     setState(() => _loading = true);
 
     final uri = widget.editEvent == null
-        ? Uri.parse('${AppConstants.baseUrl}/events/api/create/')
-        : Uri.parse('${AppConstants.baseUrl}/events/api/${widget.editEvent!.id}/edit/');
+        ? Uri.parse(joinBase('events/api/create/'))
+        : Uri.parse(joinBase('events/api/${widget.editEvent!.id}/edit/'));
 
-    final request = widget.editEvent == null
-        ? http.MultipartRequest('POST', uri)
-        : http.MultipartRequest('PUT', uri);
+    final request = http.MultipartRequest('POST', uri);
 
     request.fields['name'] = _nameCtrl.text.trim();
     request.fields['date'] = _dateCtrl.text.trim();
     request.fields['description'] = _descCtrl.text.trim();
     request.fields['location'] = _selectedStudio!.namaStudio;
 
-    // Image opsional: jika ada URL, kirim sebagai 'poster' di fields
+    // Image opsional
     if (_imageUrlCtrl.text.trim().isNotEmpty) {
       request.fields['poster_url'] = _imageUrlCtrl.text.trim();
     }
 
     if (authToken.isNotEmpty) request.headers['Authorization'] = 'Token $authToken';
 
-    try {
-      final streamedResp = await request.send();
-      final resp = await http.Response.fromStream(streamedResp);
-
       if ((widget.editEvent == null && resp.statusCode == 201) ||
           (widget.editEvent != null && resp.statusCode == 200)) {
         Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: ${resp.statusCode}')));
+            .showSnackBar(SnackBar(content: Text('Failed: ${resp.statusCode} — ${resp.body}')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context)

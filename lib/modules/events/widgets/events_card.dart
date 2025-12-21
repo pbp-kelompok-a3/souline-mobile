@@ -97,18 +97,16 @@ class EventCard extends StatelessWidget {
                   if (event.location.isNotEmpty)
                     GestureDetector(
                       onTap: () {
-                        // DO NOT TOUCH
-                        // Navigator.push(
-                        //   context,
-                        //   MaterialPageRoute(
-                        //     builder: (_) => StudioPage(studioId: event.locationId),
-                        //   ),
-                        // );
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const StudioPage()),
+                        );
                       },
                       child: Text(
-                        event.location,
+                        event.location ?? 'Location',
                         style: const TextStyle(
                           color: AppColors.orange,
+                          fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
                         ),
                       ),
