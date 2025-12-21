@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'sportswear_brand_form_page.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
@@ -15,13 +17,25 @@ class SportswearDetailPage extends StatefulWidget {
 }
 
 class _SportswearDetailPageState extends State<SportswearDetailPage> {
-  // Menggunakan warna dari AppColors
   static const Color primaryBrandColor = AppColors.darkBlue;
   static const Color ratingColor = AppColors.orange;
   static const Color accentColor = AppColors.darkBlue;
 
-  final SportswearService _service = SportswearService();
+  late SportswearService _service;
   bool _isDeleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = SportswearService(context.read<CookieRequest>());
+  }
+
+  bool get isAdmin {
+    final request = context.read<CookieRequest>();
+    final String username = request.jsonData['username'] ?? '';
+    final bool isStaff = request.jsonData['is_staff'] ?? false;
+    return isStaff || username == 'soulinestaff';
+  }
 
   void _navigateToEdit(BuildContext context) async {
     final result = await Navigator.push(
@@ -182,16 +196,18 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
               ),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.white),
-                onPressed: () => _navigateToEdit(context),
-                tooltip: 'Edit Brand',
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white),
-                onPressed: _showDeleteConfirmationDialog,
-                tooltip: 'Delete Brand',
-              ),
+              if (isAdmin) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: () => _navigateToEdit(context),
+                  tooltip: 'Edit Brand',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.white),
+                  onPressed: _showDeleteConfirmationDialog,
+                  tooltip: 'Delete Brand',
+                ),
+              ],
             ],
           ),
           SliverToBoxAdapter(
@@ -209,8 +225,6 @@ class _SportswearDetailPageState extends State<SportswearDetailPage> {
                       _buildInfoRow('Category', product.tag),
                       _buildInfoRow('Description', product.description),
                       _buildInfoRow('Link', product.link, isLink: true),
-                      if (product.adminNotes != null)
-                        _buildInfoRow('Admin Notes', product.adminNotes!, isSensitive: true),
                     ],
                   ),
                   const SizedBox(height: 16),

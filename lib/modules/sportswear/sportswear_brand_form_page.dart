@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
+import 'package:provider/provider.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'sportswear_service.dart';
@@ -15,9 +17,8 @@ class SportswearBrandFormPage extends StatefulWidget {
 
 class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final SportswearService _service = SportswearService();
+  late SportswearService _service;
 
-  // Menggunakan AppColors dari constants
   static const Color myBackgroundColor = AppColors.background;
   static const Color primaryBrandColor = AppColors.darkBlue;
   static const Color accentColor = AppColors.teal;
@@ -38,6 +39,7 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
   @override
   void initState() {
     super.initState();
+    _service = SportswearService(context.read<CookieRequest>());
 
     _nameController = TextEditingController(text: widget.brand?.name ?? '');
     _descriptionController = TextEditingController(text: widget.brand?.description ?? '');
@@ -66,47 +68,44 @@ class _SportswearBrandFormPageState extends State<SportswearBrandFormPage> {
     if (_formKey.currentState!.validate()) {
       setState(() { _isLoading = true; });
 
-      final dataToSend = Product(
-        id: widget.brand?.id ?? 0,
-        name: _nameController.text,
-        description: _descriptionController.text,
-        tag: _selectedTag ?? '',
-        thumbnail: _thumbnailController.text,
-        rating: _rating,
-        link: _linkController.text,
-        timelineReviews: widget.brand?.timelineReviews ?? [],
-        adminNotes: widget.brand?.adminNotes,
-      );
+      final Map<String, dynamic> body = {
+        "name": _nameController.text,
+        "description": _descriptionController.text,
+        "tag": _selectedTag ?? '',
+        "thumbnail": _thumbnailController.text,
+        "rating": _rating.toString(),
+        "link": _linkController.text,
+      };
 
       try {
-        if (_isEditing) {
-          await _service.updateBrand(dataToSend);
+        bool success;
+        if (widget.brand == null) {
+          success = await _service.createBrand(body);
         } else {
-          await _service.createBrand(dataToSend);
+          success = await _service.updateBrand(widget.brand!.id, body);
         }
 
-        if (mounted) {
-          Navigator.pop(context, true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isEditing ? 'Brand updated successfully!' : 'Brand added successfully!'),
-              backgroundColor: primaryBrandColor,
-            ),
-          );
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Sportswear updated successfully!"), backgroundColor: primaryBrandColor)
+            );
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw Exception("Failed to save data");
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Submission Failed: ${e.toString()}'),
+            const SnackBar(
+              content: Text("Failed! Please check your connection or login status."),
               backgroundColor: Colors.red,
             ),
           );
         }
       } finally {
-        if (mounted) {
-          setState(() { _isLoading = false; });
-        }
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
