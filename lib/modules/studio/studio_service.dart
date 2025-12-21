@@ -15,6 +15,20 @@ class StudioService {
     return StudioEntry.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<Studio?> fetchStudioById(String id) async {
+    try {
+      final entry = await fetchStudios();
+      for (final city in entry.cities) {
+        for (final studio in city.studios) {
+          if (studio.id == id) return studio;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<bool> isAdmin() async {
     final data = await request.get(_url('is-admin/'));
     if (data is Map<String, dynamic> && data.containsKey('is_admin')) {
@@ -44,7 +58,10 @@ class StudioService {
       'rating': rating,
     };
 
-    final res = await request.postJson(_url('studio/create-flutter/'), jsonEncode(payload));
+    final res = await request.postJson(
+      _url('studio/create-flutter/'),
+      jsonEncode(payload),
+    );
     _assertSuccess(res);
   }
 
@@ -70,7 +87,10 @@ class StudioService {
       'rating': rating,
     };
 
-    final res = await request.postJson(_url('studio/edit-flutter/$id/'), jsonEncode(payload));
+    final res = await request.postJson(
+      _url('studio/edit-flutter/$id/'),
+      jsonEncode(payload),
+    );
     _assertSuccess(res);
   }
 
@@ -88,7 +108,6 @@ class StudioService {
     throw Exception('Studio API error: invalid response');
   }
 }
-
 
 String proxiedImageUrl(String originalUrl) {
   if (originalUrl.isEmpty) return originalUrl;
