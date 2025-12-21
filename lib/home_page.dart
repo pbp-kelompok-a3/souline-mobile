@@ -132,7 +132,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Load timeline posts from API
-  Future<void> _loadTimeline() async {
+  /**Future<void> _loadTimeline() async {
     setState(() => _isLoadingTimeline = true);
     try {
       final request = context.read<CookieRequest>();
@@ -153,7 +153,7 @@ class _HomePageState extends State<HomePage> {
       setState(() => _isLoadingTimeline = false);
       debugPrint('Error loading timeline: $e');
     }
-  }
+  }**/
 
   /// Join base URL with path
   String _joinBaseUrl(String path) {
