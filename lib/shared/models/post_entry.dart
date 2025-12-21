@@ -6,8 +6,8 @@ String postToJson(Post data) => json.encode(data.toJson());
 
 class Post {
   List<Result> results;
-  dynamic next;
-  dynamic previous;
+  String? next;
+  String? previous;
 
   Post({
     required this.results,
@@ -40,7 +40,7 @@ class Result {
   int commentCount;
   List<Comment> comments;
   DateTime createdAt;
-  Map<String, dynamic>? attachment;
+  Attachment? attachment;
   bool isOwner;
 
   Result({
@@ -70,8 +70,10 @@ class Result {
         comments: json["comments"] == null
             ? []
             : List<Comment>.from(json["comments"]!.map((x) => Comment.fromJson(x))),
-        createdAt: DateTime.parse(json["createdAt"]),
-        attachment: json["attachment"],
+        createdAt: DateTime.parse(json["created_at"]),
+        attachment: json["attachment"] == null 
+          ? null 
+          : Attachment.fromJson(json["attachment"]),
         isOwner: json["is_owner"] ?? false,
       );
     } catch (e) {
@@ -91,8 +93,40 @@ class Result {
     "liked_by_user": likedByUser,
     "comment_count": commentCount,
     "comments": List<dynamic>.from(comments.map((x) => x.toJson())),
-    "createdAt": createdAt.toIso8601String(),
-    "attachment": attachment,
+    "created_at": createdAt.toIso8601String(),
+    "attachment": attachment?.toJson(),
+  };
+}
+
+class Attachment {
+  String type;
+  int id;
+  String name;
+  String thumbnail;
+  String link;
+
+Attachment({
+    required this.type,
+    required this.id,
+    required this.name,
+    required this.thumbnail,
+    required this.link,
+  });
+
+  factory Attachment.fromJson(Map<String, dynamic> json) => Attachment(
+    type: json["type"] ?? "Unknown",
+    id: json["id"] ?? 0,
+    name: json["name"] ?? "Unknown",
+    thumbnail: json["thumbnail"] ?? "",
+    link: json["link"] ?? "", 
+  );
+
+  Map<String, dynamic> toJson() => {
+    "type": type,
+    "id": id,
+    "name": name,
+    "thumbnail": thumbnail,
+    "link": link,
   };
 }
 
@@ -115,7 +149,7 @@ class Comment {
         id: json["id"],
         authorUsername: json["author_username"] ?? "Anonymous",
         content: json["content"] ?? "",
-        createdAt: DateTime.parse(json["createdAt"]),
+        createdAt: DateTime.parse(json["created_at"]),
       );
     } catch (e) {
       print("Error parsing Comment: $e");
@@ -128,6 +162,6 @@ class Comment {
     "id": id,
     "author_username": authorUsername,
     "content": content,
-    "createdAt": createdAt.toIso8601String(),
+    "created_at": createdAt.toIso8601String(),
   };
 }
