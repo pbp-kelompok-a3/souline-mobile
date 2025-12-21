@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 
 import './core/constants/app_constants.dart';
 import './shared/widgets/left_drawer.dart';
@@ -204,6 +205,29 @@ class _HomePageState extends State<HomePage> {
       debugPrint('Error loading events: $e');
     }
   }
+
+  Future<void> _loadTimeline() async {
+  setState(() => _isLoadingTimeline = true);
+
+  try {
+    final request = context.read<CookieRequest>();
+    final service = TimelineService(request);
+    final entry = await service.fetchPosts();
+
+    if (!mounted) return;
+
+    setState(() {
+      _timelinePosts = entry.results; 
+      _isLoadingTimeline = false;
+    });
+
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() => _isLoadingTimeline = false);
+    debugPrint('Error loading posts: $e');
+  }
+}
 
   /// Load mock data for sections without API implementation
   void _loadMockData() {

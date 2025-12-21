@@ -22,6 +22,7 @@ class TimelinePageState extends State<TimelinePage> {
   final TextEditingController _searchController = TextEditingController();
   List<Result> _posts = [];
   bool _loading = true;
+  bool _isAdmin = false;
 
   String _sortBy = 'latest';
   String _searchQuery = '';
@@ -34,19 +35,31 @@ class TimelinePageState extends State<TimelinePage> {
   }
 
   Future<void> _load() async {
-    final request = context.read<CookieRequest>();
-    final service = TimelineService(request);
+  final request = context.read<CookieRequest>();
+  final service = TimelineService(request);
 
-    try {
-      final data = await service.fetchPosts();
+  try {
+    final data = await service.fetchPosts();
+    final admin = await service.isAdmin();
+
+    setState(() {
+      _posts = data.results;
+      _isAdmin = admin;
+    });
+
+  } catch (e) {
+    print("Error loading posts: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to load posts: $e")),
+    );
+  } finally {
+    if (mounted) {
       setState(() {
-        _posts = data.results;
-        _loading = false;
+        _loading = false; 
       });
-    } catch (e) {
-      print("Error loading posts: $e");
     }
   }
+}
 
   List<Result> get _filteredPosts {
     if (_searchQuery.isNotEmpty) {
@@ -120,6 +133,7 @@ class TimelinePageState extends State<TimelinePage> {
   @override
   Widget build(BuildContext context) {
     final isSearching = _searchQuery.isNotEmpty;
+    final request = context.watch<CookieRequest>();
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -241,11 +255,14 @@ class TimelinePageState extends State<TimelinePage> {
                           final post = _filteredPosts[index];
                           return PostCard(
                             post: post,
-                            onTap: () {
-                              Navigator.push(
+                            onTap: () async {
+                              final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => PostDetailPage(post: post)),
                               );
+                              if (result == true) {
+                                _load(); 
+                              }
                             },
                           );
                         },
@@ -261,16 +278,21 @@ class TimelinePageState extends State<TimelinePage> {
           ),
         ],
       ),
-      floatingActionButton: Padding(
+
+      floatingActionButton: request.loggedIn 
+      ? Padding(
         padding: EdgeInsets.only(bottom: 80),
         child: FloatingActionButton(
           backgroundColor: AppColors.orange,
           shape: const CircleBorder(),
-          onPressed: () {
-            Navigator.push(
+          onPressed: () async {
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const PostFormPage()),
             );
+            if (result == true) {
+              _load();
+            }
           },
           child: const Icon(
             Icons.add,
@@ -278,7 +300,8 @@ class TimelinePageState extends State<TimelinePage> {
             size: 32,
           ),
         ),
-      ),
+      )
+      : null,
     );
   }
 }

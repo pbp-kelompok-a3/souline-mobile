@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -51,9 +54,14 @@ class _PostFormPageState extends State<PostFormPage> {
         final timelineService = TimelineService(request);
 
     try {
+      String? base64Image;
+      if (_imageController.text.isNotEmpty && !_imageController.text.startsWith('http')) {
+          base64Image = await _imageToBase64(_imageController.text);
+      }
+
       await timelineService.createPost(
         text: _textController.text,
-        image: _imageController.text.isNotEmpty ? _imageController.text : null,
+        image: base64Image, 
         attachment: attachments, 
       );
 
@@ -79,6 +87,19 @@ class _PostFormPageState extends State<PostFormPage> {
       setState(() {
         _imageController.text = image.path;
       });
+    }
+  }
+
+  Future<String?> _imageToBase64(String path) async {
+    if (path.isEmpty) return null;
+    try {
+      final File imageFile = File(path);
+      final List<int> imageBytes = await imageFile.readAsBytes();
+      final String base64Image = base64Encode(imageBytes);
+      return base64Image;
+    } catch (e) {
+        print("Error converting image: $e");
+      return null;
     }
   }
 
