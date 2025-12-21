@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http; 
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/left_drawer.dart';
 import '../../shared/widgets/navigation_bar.dart';
@@ -48,16 +46,8 @@ class _EventsPageState extends State<EventsPage> {
 
   Future<List<EventModel>> fetchEvents() async {
     final request = context.read<CookieRequest>();
-    final url = joinBase('events/json/');
-    final headers = <String, String>{'Content-Type': 'application/json'};
-
-    final response = await http.get(Uri.parse(url), headers: headers);
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((e) => EventModel.fromJson(e)).toList();
-    } else {
-      throw Exception('Failed to load events (${response.statusCode})');
-    }
+    final service = EventService(request, AppConstants.baseUrl);
+    return service.fetchEvents(filter: selectedDateFilter, kota: selectedCity);
   }
 
   Future<void> _deleteEvent(int id) async {
@@ -67,32 +57,38 @@ class _EventsPageState extends State<EventsPage> {
         title: const Text('Delete event?'),
         content: const Text('Are you sure you want to delete this event?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
 
-    final url = joinBase('events/api/$id/delete/');
-    final headers = <String, String>{'Content-Type': 'application/json'};
-    final request = context.read<CookieRequest>();
+    try {
+      final request = context.read<CookieRequest>();
+      final service = EventService(request, AppConstants.baseUrl);
+      final success = await service.deleteEvent(id);
 
-    if (request.loggedIn) {
-      final username = request.cookies['username'] ?? '';
-      headers['Authorization'] = 'Token ${username}';
-    }
-
-    final resp = await http.delete(Uri.parse(url), headers: headers);
-    if (resp.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event deleted')));
-      setState(() {
-        futureEvents = fetchEvents();
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: ${resp.statusCode}')),
-      );
+      if (success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Event deleted')));
+        setState(() => futureEvents = fetchEvents());
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Delete failed')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -112,7 +108,9 @@ class _EventsPageState extends State<EventsPage> {
   @override
   Widget build(BuildContext context) {
     final request = context.watch<CookieRequest>();
-    final headerLocationLabel = selectedCity.isEmpty ? 'All Locations' : selectedCity;
+    final headerLocationLabel = selectedCity.isEmpty
+        ? 'All Locations'
+        : selectedCity;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -123,7 +121,8 @@ class _EventsPageState extends State<EventsPage> {
             children: [
               AppHeader(
                 title: 'Events',
-                onSearchChanged: (value) => setState(() => _searchQuery = value),
+                onSearchChanged: (value) =>
+                    setState(() => _searchQuery = value),
                 onFilterPressed: _toggleFilter,
                 showDrawerButton: true,
               ),
@@ -137,13 +136,19 @@ class _EventsPageState extends State<EventsPage> {
                       const Text('📍 ', style: TextStyle(fontSize: 20)),
                       Text(
                         headerLocationLabel,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       if (selectedCity.isNotEmpty)
                         TextButton(
                           onPressed: () => _applyFilter('', 'all'),
-                          child: const Text('Clear', style: TextStyle(color: AppColors.darkBlue)),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(color: AppColors.darkBlue),
+                          ),
                         ),
                     ],
                   ),
@@ -162,22 +167,41 @@ class _EventsPageState extends State<EventsPage> {
                     }
                     final allEvents = snapshot.data ?? [];
                     final visibleEvents = allEvents.where((e) {
-                      final matchesCity = selectedCity.isEmpty || e.location.toLowerCase().contains(selectedCity.toLowerCase());
-                      final matchesSearch = _searchQuery.isEmpty || e.name.toLowerCase().contains(_searchQuery.toLowerCase()) || e.location.toLowerCase().contains(_searchQuery.toLowerCase());
+                      final matchesCity =
+                          selectedCity.isEmpty ||
+                          e.location.toLowerCase().contains(
+                            selectedCity.toLowerCase(),
+                          );
+                      final matchesSearch =
+                          _searchQuery.isEmpty ||
+                          e.name.toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          ) ||
+                          e.location.toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          );
                       return matchesCity && matchesSearch;
                     }).toList();
 
                     if (visibleEvents.isEmpty) {
-                      return const Center(child: Text('No upcoming events yet.'));
+                      return const Center(
+                        child: Text('No upcoming events yet.'),
+                      );
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 120, left: 16, right: 16, top: 8),
+                      padding: const EdgeInsets.only(
+                        bottom: 120,
+                        left: 16,
+                        right: 16,
+                        top: 8,
+                      ),
                       itemCount: visibleEvents.length,
                       itemBuilder: (context, index) {
                         final event = visibleEvents[index];
                         final username = request.cookies['username'] ?? '';
-                        final isOwner = request.loggedIn && username == event.createdBy;
+                        final isOwner =
+                            request.loggedIn && username == event.createdBy;
                         return EventCard(
                           event: event,
                           posterUrl: buildPosterUrl(event.poster),
@@ -189,20 +213,34 @@ class _EventsPageState extends State<EventsPage> {
                                 builder: (_) => EventDetailPage(
                                   event: event,
                                   baseUrl: AppConstants.baseUrl,
-                                  currentUsername: (request.cookies['username'] ?? '').toString(),
+                                  currentUsername:
+                                      (request.cookies['username'] ?? '')
+                                          .toString(),
                                 ),
                               ),
-                            ).then((_) => setState(() => futureEvents = fetchEvents()));
+                            ).then(
+                              (_) =>
+                                  setState(() => futureEvents = fetchEvents()),
+                            );
                           },
                           onEdit: isOwner
                               ? () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => AddEventPage(editEvent: event)),
-                                  ).then((_) => setState(() => futureEvents = fetchEvents()));
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          AddEventPage(editEvent: event),
+                                    ),
+                                  ).then(
+                                    (_) => setState(
+                                      () => futureEvents = fetchEvents(),
+                                    ),
+                                  );
                                 }
                               : null,
-                          onDelete: isOwner ? () => _deleteEvent(event.id) : null,
+                          onDelete: isOwner
+                              ? () => _deleteEvent(event.id)
+                              : null,
                         );
                       },
                     );
@@ -222,7 +260,12 @@ class _EventsPageState extends State<EventsPage> {
                 child: EventFilter(onApply: _applyFilter),
               ),
             ),
-          const Positioned(left: 0, right: 0, bottom: 0, child: FloatingNavigationBar(currentIndex: 3)),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FloatingNavigationBar(currentIndex: 3),
+          ),
         ],
       ),
       floatingActionButton: request.loggedIn
