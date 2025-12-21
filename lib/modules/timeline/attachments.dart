@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/shared/models/post_entry.dart';
+import 'package:souline_mobile/shared/models/resources_entry.dart';
 import 'package:souline_mobile/shared/models/sportswear_model.dart';
 
 class AttachmentSelectorPage extends StatefulWidget {
@@ -19,7 +21,7 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
   String? _errorMessage;
 
   List<Product> brands = [];
-  // List<Resource> videos = []; 
+  List<ResourcesEntry> videos = []; 
 
   @override
   void initState() {
@@ -38,15 +40,15 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
           });
         }
       } 
-      // else if (widget.type == 'Resource') {
-      //   final fetchedVideos = await fetchVideos();
-      //   if (mounted) {
-      //     setState(() {
-      //       videos = fetchedVideos;
-      //       _isLoading = false;
-      //     });
-      //   }
-      // }
+      else if (widget.type == 'Resource') {
+        final fetchedVideos = await fetchVideos();
+        if (mounted) {
+          setState(() {
+            videos = fetchedVideos;
+            _isLoading = false;
+          });
+        }
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -68,16 +70,16 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
     }
   }
 
-  // Future<List<Product>> fetchVideos() async {
-  //   final response = await http.get(Uri.parse('${AppConstants.baseUrl}resources/api/list/'));
+  Future<List<ResourcesEntry>> fetchVideos() async {
+    final response = await http.get(Uri.parse('${AppConstants.baseUrl}resources/api/'));
 
-  //   if (response.statusCode == 200) {
-  //     final List<dynamic> jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-  //     return jsonList.map((json) => Resource.fromJson(json)).toList();
-  //   } else {
-  //     throw Exception('Failed to load resources. Status: ${response.statusCode}');
-  //   }
-  // }
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((json) => ResourcesEntry.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load resources. Status: ${response.statusCode}');
+    }
+  }
 
   List<dynamic> get _filteredData {
     final query = _searchQuery.toLowerCase();
@@ -89,13 +91,13 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
         (b.name).toLowerCase().contains(query)
       ).toList();
     } 
-    // else if (widget.type == 'Resource') {
-    //   if (query.isEmpty) return videos;
+    else if (widget.type == 'Resource') {
+      if (query.isEmpty) return videos;
       
-    //   return videos.where((v) => 
-    //     (v.name).toLowerCase().contains(query)
-    //   ).toList();
-    // }
+      return videos.where((v) => 
+        (v.title).toLowerCase().contains(query)
+      ).toList();
+    }
     return [];
   }
 
@@ -143,12 +145,14 @@ class _AttachmentSelectorPageState extends State<AttachmentSelectorPage> {
                         padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
                         child: GestureDetector(
                           onTap: () {
-                            Navigator.pop(context, {
-                              "id": obj.id,
-                              "name": obj.name, 
-                              "thumbnail": obj.thumbnail,
-                              "type": widget.type
-                            });
+                            final attachment = Attachment(
+                              id: obj.id,
+                              name: obj.name, 
+                              thumbnail: obj.thumbnail,
+                              type: widget.type, 
+                              link: '',
+                            );
+                            Navigator.pop(context, attachment);
                           },
                           child: Container(
                             padding: EdgeInsets.all(12),

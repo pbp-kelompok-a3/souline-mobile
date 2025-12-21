@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 import 'package:souline_mobile/shared/models/post_entry.dart';
 
 class CommentFormPage extends StatefulWidget {
@@ -41,42 +42,25 @@ class _CommentFormPageState extends State<CommentFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final request = context.read<CookieRequest>();
+        final timelineService = TimelineService(request);
 
     try {
-      dynamic response;
+      await timelineService.addComment(
+        widget.post.id, 
+        _contentController.text,
+      );
 
-      if (_isEditing) {
-        response = await request.postJson(
-          "${AppConstants.baseUrl}timeline/api/comment/${widget.comment!.id}/edit/",
-          jsonEncode({
-            'content': _contentController.text,
-          }),
-        );
-      } else {
-        response = await request.postJson(
-          "${AppConstants.baseUrl}timeline/api/${widget.post.id}/comment/",
-          jsonEncode({
-            'content': _contentController.text,
-          }),
-        );
-      }
-
-      if (response['status'] == 'success') { 
-        if (!mounted) return;
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEditing ? "Comment updated!" : "Comment added!")),
-        );
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response['message'] ?? "Failed to save comment.")),
-        );
-      }
-    } catch (e) {
-      print("Error: $e");
+      if (!mounted) return;
+      Navigator.pop(context, true); 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error occurred: $e")),
+        SnackBar(content: Text(_isEditing ? 'Comment updated!' : 'Comment added!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
