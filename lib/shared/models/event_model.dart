@@ -7,6 +7,7 @@ class EventModel {
   final String description;
   final String poster;
   final String location;
+  final String? locationId;
   final String createdBy;
 
   EventModel({
@@ -16,6 +17,7 @@ class EventModel {
     required this.description,
     required this.poster,
     required this.location,
+    this.locationId,
     required this.createdBy,
   });
 
@@ -41,6 +43,7 @@ class EventModel {
       description: json['description'] ?? '',
       poster: json['poster'] ?? '',
       location: json['location'] ?? '',
+      locationId: json['location_id']?.toString(),
       createdBy: json['created_by'] ?? '',
     );
   }

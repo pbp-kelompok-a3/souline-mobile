@@ -12,6 +12,8 @@ import 'widgets/events_card.dart';
 import 'widgets/events_filter.dart';
 import 'events_service.dart';
 
+import '../../modules/studio/studio_service.dart';
+
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
 
@@ -25,12 +27,34 @@ class _EventsPageState extends State<EventsPage> {
   late Future<List<EventModel>> futureEvents;
   bool isFilterVisible = false;
   String _searchQuery = '';
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     futureEvents = fetchEvents();
+    // Schedule checkAdmin after build to access context/provider or safe init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAdmin();
+    });
   }
+
+  Future<void> _checkAdmin() async {
+    final request = context.read<CookieRequest>();
+    if (!request.loggedIn) return;
+
+    try {
+      final service = StudioService(request);
+      final adminStatus = await service.isAdmin();
+      if (mounted) {
+        setState(() => _isAdmin = adminStatus);
+      }
+    } catch (e) {
+      debugPrint('Error checking admin status: $e');
+    }
+  }
+
+  // ... existing methods joinBase, buildPosterUrl ...
 
   String joinBase(String path) {
     final base = AppConstants.baseUrl;
@@ -50,6 +74,7 @@ class _EventsPageState extends State<EventsPage> {
     return service.fetchEvents(filter: selectedDateFilter, kota: selectedCity);
   }
 
+  // ... _deleteEvent ...
   Future<void> _deleteEvent(int id) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -92,10 +117,12 @@ class _EventsPageState extends State<EventsPage> {
     }
   }
 
+  // ... _toggleFilter ...
   void _toggleFilter() {
     setState(() => isFilterVisible = !isFilterVisible);
   }
 
+  // ... _applyFilter ...
   void _applyFilter(String city, String dateFilter) {
     setState(() {
       selectedCity = city;
@@ -200,12 +227,15 @@ class _EventsPageState extends State<EventsPage> {
                       itemBuilder: (context, index) {
                         final event = visibleEvents[index];
                         final username = request.cookies['username'] ?? '';
-                        final isOwner =
-                            request.loggedIn && username == event.createdBy;
+                        // Allow if Admin OR Owner
+                        final isOwnerOrAdmin =
+                            _isAdmin ||
+                            (request.loggedIn && username == event.createdBy);
+
                         return EventCard(
                           event: event,
                           posterUrl: buildPosterUrl(event.poster),
-                          isOwner: isOwner,
+                          isOwner: isOwnerOrAdmin,
                           onDetail: () {
                             Navigator.push(
                               context,
@@ -216,6 +246,7 @@ class _EventsPageState extends State<EventsPage> {
                                   currentUsername:
                                       (request.cookies['username'] ?? '')
                                           .toString(),
+                                  isAdmin: _isAdmin, // Passing admin status
                                 ),
                               ),
                             ).then(
@@ -223,7 +254,7 @@ class _EventsPageState extends State<EventsPage> {
                                   setState(() => futureEvents = fetchEvents()),
                             );
                           },
-                          onEdit: isOwner
+                          onEdit: isOwnerOrAdmin
                               ? () {
                                   Navigator.push(
                                     context,
@@ -238,7 +269,7 @@ class _EventsPageState extends State<EventsPage> {
                                   );
                                 }
                               : null,
-                          onDelete: isOwner
+                          onDelete: isOwnerOrAdmin
                               ? () => _deleteEvent(event.id)
                               : null,
                         );
