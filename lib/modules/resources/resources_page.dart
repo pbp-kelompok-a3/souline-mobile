@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:souline_mobile/shared/widgets/app_header.dart';
 import 'package:souline_mobile/shared/models/resources_entry.dart';
 import 'package:souline_mobile/modules/resources/widgets/resources_card.dart';
@@ -6,9 +8,11 @@ import 'package:souline_mobile/modules/resources/HeroDialogRoute.dart';
 import 'package:souline_mobile/modules/resources/widgets/resources_filter_dialog.dart';
 import 'package:souline_mobile/modules/resources/resources_detail_page.dart';
 import 'package:souline_mobile/modules/resources/widgets/level_badge.dart';
+import 'package:souline_mobile/shared/widgets/left_drawer.dart';
 import 'package:souline_mobile/shared/widgets/navigation_bar.dart';
 import 'package:souline_mobile/modules/resources/resources_form_page.dart';
-
+import 'package:souline_mobile/modules/user/bookmarks_service.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 
 class ResourcesPage extends StatefulWidget {
   const ResourcesPage({super.key});
@@ -20,7 +24,7 @@ class ResourcesPage extends StatefulWidget {
 class _ResourcesPageState extends State<ResourcesPage> {
   String? _selectedLevel; // null = mode default (section view)
   String _searchQuery = '';
-  bool isAdmin = true; 
+  bool isAdmin = true;
 
   late List<ResourcesEntry> dummyResources;
 
@@ -35,8 +39,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
             'This beginner-to-moderate level Pilates class is perfect...',
         youtubeUrl: 'https://www.youtube.com/embed/wtVyZmHnlxM',
         videoId: 'wtVyZmHnlxM',
-        thumbnailUrl:
-            'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
+        thumbnailUrl: 'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
         level: 'beginner',
       ),
       ResourcesEntry(
@@ -45,8 +48,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
         description: 'Intermediate full body pilates...',
         youtubeUrl: 'https://www.youtube.com/embed/C2HX2pNbUCM',
         videoId: 'C2HX2pNbUCM',
-        thumbnailUrl:
-            'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
+        thumbnailUrl: 'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
         level: 'intermediate',
       ),
       ResourcesEntry(
@@ -56,8 +58,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
         description: 'Beginner pilates session...',
         youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
         videoId: 'sPNpgaXVGw4',
-        thumbnailUrl:
-            'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
+        thumbnailUrl: 'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
         level: 'beginner',
       ),
       ResourcesEntry(
@@ -67,8 +68,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
         description: 'Advanced pilates session...',
         youtubeUrl: 'https://www.youtube.com/embed/sPNpgaXVGw4',
         videoId: 'sPNpgaXVGw4',
-        thumbnailUrl:
-            'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
+        thumbnailUrl: 'https://img.youtube.com/vi/sPNpgaXVGw4/hqdefault.jpg',
         level: 'advanced',
       ),
     ];
@@ -113,15 +113,19 @@ class _ResourcesPageState extends State<ResourcesPage> {
           r.level.toLowerCase().contains(q);
     }).toList();
 
-    final beginner =
-        all.where((r) => r.level.toLowerCase() == 'beginner').toList();
-    final intermediate =
-        all.where((r) => r.level.toLowerCase() == 'intermediate').toList();
-    final advanced =
-        all.where((r) => r.level.toLowerCase() == 'advanced').toList();
+    final beginner = all
+        .where((r) => r.level.toLowerCase() == 'beginner')
+        .toList();
+    final intermediate = all
+        .where((r) => r.level.toLowerCase() == 'intermediate')
+        .toList();
+    final advanced = all
+        .where((r) => r.level.toLowerCase() == 'advanced')
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7EA),
+      drawer: const LeftDrawer(),
       body: SafeArea(
         child: Stack(
           children: [
@@ -134,75 +138,73 @@ class _ResourcesPageState extends State<ResourcesPage> {
                   : _buildFilteredVerticalView(all),
             ),
 
-          // === HEADER DI ATAS SEMUA ===
-          AppHeader(
-            title: 'Resources',
-            onSearchChanged: _onSearch,
-            filterHeroTag: 'resources-filter-hero',
-            filterButton: GestureDetector(
-              onTap: () async {
-                final level = await Navigator.of(context).push<String>(
-                  HeroDialogRoute(
-                    builder: (_) => const ResourcesFilterDialog(),
+            // === HEADER DI ATAS SEMUA ===
+            AppHeader(
+              title: 'Resources',
+              onSearchChanged: _onSearch,
+              filterHeroTag: 'resources-filter-hero',
+              filterButton: GestureDetector(
+                onTap: () async {
+                  final level = await Navigator.of(context).push<String>(
+                    HeroDialogRoute(
+                      builder: (_) => const ResourcesFilterDialog(),
+                    ),
+                  );
+
+                  if (level != null) {
+                    setState(() => _selectedLevel = level);
+                  }
+                },
+                child: Container(
+                  height: 48,
+                  width: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8BC5FF),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                );
-
-                if (level != null) {
-                  setState(() => _selectedLevel = level);
-                }
-              },
-              child: Container(
-                height: 48,
-                width: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8BC5FF),
-                  borderRadius: BorderRadius.circular(18),
+                  child: const Icon(Icons.tune, color: Colors.white),
                 ),
-                child: const Icon(Icons.tune, color: Colors.white),
               ),
+              showDrawerButton: true,
             ),
-          ),    
 
-          const Positioned(
+            const Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: FloatingNavigationBar(
-                currentIndex: 2,
-              ),
+              child: FloatingNavigationBar(currentIndex: 2),
             ),
           ],
         ),
       ),
       floatingActionButton: isAdmin
-      ?Padding(
-        padding: const EdgeInsets.only(bottom: 90),
-        child: FloatingActionButton(
-          backgroundColor: const Color(0xFF62C4D9),
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, size: 32, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ResourceFormPage(),// TODO: bikin halaman ini
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 90),
+              child: FloatingActionButton(
+                backgroundColor: const Color(0xFF62C4D9),
+                shape: const CircleBorder(),
+                child: const Icon(Icons.add, size: 32, color: Colors.white),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const ResourceFormPage(), // TODO: bikin halaman ini
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ) 
-      : null,
-
-
+            )
+          : null,
     );
   }
 
-
   // MODE 1: Section Horizontal Scroll
   Widget _buildSectionView(
-      List<ResourcesEntry> beginner,
-      List<ResourcesEntry> intermediate,
-      List<ResourcesEntry> advanced) {
+    List<ResourcesEntry> beginner,
+    List<ResourcesEntry> intermediate,
+    List<ResourcesEntry> advanced,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
       child: Column(
@@ -210,48 +212,57 @@ class _ResourcesPageState extends State<ResourcesPage> {
         children: [
           if (beginner.isNotEmpty)
             _ResourcesSection(
-              label: 'Beginner', 
+              label: 'Beginner',
               resources: beginner,
               isAdmin: isAdmin,
               onEdit: (r) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('Form di sini')),
+                    ),
                   ),
                 );
               },
               onDelete: _confirmDelete,
+              onBookmark: _toggleBookmark,
             ),
           if (intermediate.isNotEmpty)
             _ResourcesSection(
-              label: 'Intermediate', 
+              label: 'Intermediate',
               resources: intermediate,
               isAdmin: isAdmin,
               onEdit: (r) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('Form di sini')),
+                    ),
                   ),
                 );
               },
               onDelete: _confirmDelete,
+              onBookmark: _toggleBookmark,
             ),
           if (advanced.isNotEmpty)
             _ResourcesSection(
-              label: 'Advanced', 
+              label: 'Advanced',
               resources: advanced,
               isAdmin: isAdmin,
               onEdit: (r) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('Form di sini')),
+                    ),
                   ),
                 );
               },
               onDelete: _confirmDelete,
+              onBookmark: _toggleBookmark,
             ),
         ],
       ),
@@ -303,18 +314,21 @@ class _ResourcesPageState extends State<ResourcesPage> {
               padding: const EdgeInsets.only(bottom: 18),
               child: ResourcesCard(
                 resource: r,
-                showAdminActions: isAdmin, 
+                showAdminActions: isAdmin,
                 onEdit: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const Scaffold(body: Center(child: Text('Form di sini'))),
+                      builder: (_) => const Scaffold(
+                        body: Center(child: Text('Form di sini')),
+                      ),
                     ),
                   );
                 },
-                onDelete:(){
+                onDelete: () {
                   _confirmDelete(r);
                 },
+                onTapBookmark: () => _toggleBookmark(r),
                 onTapDetail: () {
                   Navigator.push(
                     context,
@@ -361,16 +375,44 @@ class _ResourcesPageState extends State<ResourcesPage> {
                 dummyResources.removeWhere((item) => item.id == r.id);
               });
             },
-            child: const Text(
-              "Delete",
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
 
+  /// Handle bookmark toggle for a resource
+  Future<void> _toggleBookmark(ResourcesEntry resource) async {
+    final request = context.read<CookieRequest>();
+
+    if (!request.loggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to add a bookmark'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+      return;
+    }
+
+    final service = BookmarksService(request);
+    final newState = await service.toggleBookmark(
+      appLabel: BookmarkAppLabel.resources,
+      model: BookmarkContentType.resource,
+      objectId: resource.id.toString(),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newState ? 'Resource bookmarked' : 'Bookmark removed'),
+          backgroundColor: AppColors.darkBlue,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
 }
 
 // ===================================================================
@@ -383,6 +425,7 @@ class _ResourcesSection extends StatelessWidget {
   final bool isAdmin;
   final Function(ResourcesEntry)? onEdit;
   final Function(ResourcesEntry)? onDelete;
+  final Function(ResourcesEntry)? onBookmark;
 
   const _ResourcesSection({
     required this.label,
@@ -390,6 +433,7 @@ class _ResourcesSection extends StatelessWidget {
     required this.isAdmin,
     this.onEdit,
     this.onDelete,
+    this.onBookmark,
   });
 
   @override
@@ -424,6 +468,7 @@ class _ResourcesSection extends StatelessWidget {
                     showAdminActions: isAdmin,
                     onEdit: () => onEdit?.call(r),
                     onDelete: () => onDelete?.call(r),
+                    onTapBookmark: () => onBookmark?.call(r),
                     onTapDetail: () {
                       Navigator.push(
                         context,

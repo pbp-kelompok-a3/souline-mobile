@@ -29,7 +29,6 @@ import 'modules/sportswear/sportswear_service.dart';
 import 'modules/resources/resources_page.dart';
 
 import 'modules/timeline/timeline_page.dart';
-import 'modules/timeline/timeline_service.dart';
 import 'modules/timeline/post_detail.dart';
 import 'modules/events/events_page.dart';
 import 'modules/events/events_detail.dart';
@@ -132,28 +131,28 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Load timeline posts from API
-  Future<void> _loadTimeline() async {
-    setState(() => _isLoadingTimeline = true);
-    try {
-      final request = context.read<CookieRequest>();
-      final service = TimelineService(request);
-      final response = await service.fetchPosts();
+  // Future<void> _loadTimeline() async {
+  //   setState(() => _isLoadingTimeline = true);
+  //   try {
+  //     final request = context.read<CookieRequest>();
+  //     final service = TimelineService(request);
+  //     final response = await service.fetchPosts();
 
-      if (!mounted) return;
+  //     if (!mounted) return;
 
-      setState(() {
-        // Sort by latest (descending ID) and take top 3
-        final sorted = List<Result>.from(response.results);
-        sorted.sort((a, b) => b.id.compareTo(a.id));
-        _timelinePosts = sorted.take(3).toList();
-        _isLoadingTimeline = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingTimeline = false);
-      debugPrint('Error loading timeline: $e');
-    }
-  }
+  //     setState(() {
+  //       // Sort by latest (descending ID) and take top 3
+  //       final sorted = List<Result>.from(response.results);
+  //       sorted.sort((a, b) => b.id.compareTo(a.id));
+  //       _timelinePosts = sorted.take(3).toList();
+  //       _isLoadingTimeline = false;
+  //     });
+  //   } catch (e) {
+  //     if (!mounted) return;
+  //     setState(() => _isLoadingTimeline = false);
+  //     debugPrint('Error loading timeline: $e');
+  //   }
+  // }
 
   /// Join base URL with path
   String _joinBaseUrl(String path) {
@@ -207,27 +206,27 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadTimeline() async {
-  setState(() => _isLoadingTimeline = true);
+    setState(() => _isLoadingTimeline = true);
 
-  try {
-    final request = context.read<CookieRequest>();
-    final service = TimelineService(request);
-    final entry = await service.fetchPosts();
+    try {
+      final request = context.read<CookieRequest>();
+      final service = TimelineService(request);
+      final entry = await service.fetchPosts();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _timelinePosts = entry.results; 
-      _isLoadingTimeline = false;
-    });
+      setState(() {
+        _timelinePosts = entry.results; 
+        _isLoadingTimeline = false;
+      });
 
-  } catch (e) {
-    if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
 
-    setState(() => _isLoadingTimeline = false);
-    debugPrint('Error loading posts: $e');
+      setState(() => _isLoadingTimeline = false);
+      debugPrint('Error loading posts: $e');
+    }
   }
-}
 
   /// Load mock data for sections without API implementation
   void _loadMockData() {
@@ -560,7 +559,7 @@ class _HomePageState extends State<HomePage> {
                 MaterialPageRoute(
                   builder: (_) => StudioDetailPage(
                     studio: _studios[index],
-                    isAdmin: false, // TODO: Get from auth state
+                    isAdmin: false,
                   ),
                 ),
               );
