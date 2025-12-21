@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:souline_mobile/shared/models/resources_entry.dart';
+import 'package:souline_mobile/modules/user/bookmarks_service.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 
-class ResourcesCard extends StatelessWidget {
+class ResourcesCard extends StatefulWidget {
   final ResourcesEntry resource;
   final VoidCallback? onTapDetail;
   final VoidCallback? onTapBookmark;
   final bool showAdminActions;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-
 
   const ResourcesCard({
     super.key,
@@ -21,21 +24,95 @@ class ResourcesCard extends StatelessWidget {
   });
 
   @override
+  State<ResourcesCard> createState() => _ResourcesCardState();
+}
+
+class _ResourcesCardState extends State<ResourcesCard> {
+  bool _isBookmarked = false;
+  bool _isToggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBookmarkStatus();
+  }
+
+  /// Check if this resource is bookmarked
+  Future<void> _checkBookmarkStatus() async {
+    final request = context.read<CookieRequest>();
+    if (!request.loggedIn) return;
+
+    final service = BookmarksService(request);
+    final isBookmarked = await service.isBookmarked(
+      BookmarkContentType.resource,
+      widget.resource.id.toString(),
+    );
+
+    if (mounted) {
+      setState(() => _isBookmarked = isBookmarked);
+    }
+  }
+
+  /// Toggle bookmark status
+  Future<void> _toggleBookmark() async {
+    final request = context.read<CookieRequest>();
+
+    if (!request.loggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to add a bookmark'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+      return;
+    }
+
+    if (_isToggling) return;
+    setState(() => _isToggling = true);
+
+    final service = BookmarksService(request);
+    final newState = await service.toggleBookmark(
+      appLabel: BookmarkAppLabel.resources,
+      model: BookmarkContentType.resource,
+      objectId: widget.resource.id.toString(),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isBookmarked = newState;
+        _isToggling = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isBookmarked ? 'Resource bookmarked' : 'Bookmark removed',
+          ),
+          backgroundColor: AppColors.darkBlue,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+
+    // Also call the external callback if provided
+    widget.onTapBookmark?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      // height: 200,
       decoration: BoxDecoration(
         color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(8),
-        boxShadow: [ /* kalau ada */ ],
+        boxShadow: const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // === HANYA THUMBNAIL YANG BISA DI TAP ===
+          // === THUMBNAIL AREA ===
           GestureDetector(
-            onTap: onTapDetail,
+            onTap: widget.onTapDetail,
             child: ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
@@ -43,19 +120,20 @@ class ResourcesCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  if (resource.thumbnailUrl.isNotEmpty)
+                  if (widget.resource.thumbnailUrl.isNotEmpty)
                     Image.network(
-                      resource.thumbnailUrl,
+                      widget.resource.thumbnailUrl,
                       width: double.infinity,
                       height: 155,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _ThumbnailFallback(height: 155),
+                      errorBuilder: (context, error, stackTrace) =>
+                          const _ThumbnailFallback(height: 155),
                     )
                   else
                     const _ThumbnailFallback(height: 155),
                   Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.15),
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.15),
                     ),
                   ),
                   const Positioned.fill(
@@ -67,34 +145,34 @@ class ResourcesCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if(showAdminActions)
-                  Positioned(                     
-                    top: 10,
-                    right: 10,
-                    child: Row(
-                      children: [
-                        _AdminPillButton(
-                          label: "Edit",
-                          color: Colors.blue,
-                          icon: Icons.edit,
-                          onTap: onEdit,
-                        ),
-                        const SizedBox(width: 8),
-                        _AdminPillButton(
-                          label: "Delete",
-                          color: Colors.red,
-                          icon: Icons.delete,
-                          onTap: onDelete,
-                        ),
-                      ],
+                  if (widget.showAdminActions)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Row(
+                        children: [
+                          _AdminPillButton(
+                            label: "Edit",
+                            color: Colors.blue,
+                            icon: Icons.edit,
+                            onTap: widget.onEdit,
+                          ),
+                          const SizedBox(width: 8),
+                          _AdminPillButton(
+                            label: "Delete",
+                            color: Colors.red,
+                            icon: Icons.delete,
+                            onTap: widget.onDelete,
+                          ),
+                        ],
+                      ),
                     ),
-                  )
                 ],
               ),
             ),
           ),
 
-          // BAGIAN PUTIH
+          // WHITE AREA
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Column(
@@ -104,11 +182,11 @@ class ResourcesCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // TITLE (TIDAK DIBUNGKUS GESTUREDETECTOR)
+                    // TITLE
                     SizedBox(
-                      width: 200, // supaya nggak nabrak icon
+                      width: 200,
                       child: Text(
-                        resource.title,
+                        widget.resource.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -119,12 +197,16 @@ class ResourcesCard extends StatelessWidget {
                       ),
                     ),
 
-                    // BOOKMARK (BISA DI TAP)
+                    // BOOKMARK BUTTON - Now toggles!
                     GestureDetector(
-                      onTap: onTapBookmark,
-                      child: const Icon(
-                        Icons.bookmark_border_rounded,
-                        color: Color(0xFF233654),
+                      onTap: _toggleBookmark,
+                      child: Icon(
+                        _isBookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: _isBookmarked
+                            ? AppColors.orange
+                            : const Color(0xFF233654),
                         size: 24,
                       ),
                     ),
@@ -137,10 +219,10 @@ class ResourcesCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // DESCRIPTION (TIDAK BISA DI TAP)
+                    // DESCRIPTION
                     Expanded(
                       child: Text(
-                        resource.description,
+                        widget.resource.description,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -152,9 +234,9 @@ class ResourcesCard extends StatelessWidget {
 
                     const SizedBox(width: 8),
 
-                    // === HANYA "DETAIL" YANG BISA DI TAP ===
+                    // "DETAIL" BUTTON
                     GestureDetector(
-                      onTap: onTapDetail,
+                      onTap: widget.onTapDetail,
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -179,7 +261,7 @@ class ResourcesCard extends StatelessWidget {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -220,11 +302,7 @@ class _AdminPillButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Icon(
-              icon,
-              color: color,
-              size: 16,
-            ),
+            Icon(icon, color: color, size: 16),
           ],
         ),
       ),

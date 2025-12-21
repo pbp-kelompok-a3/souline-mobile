@@ -112,6 +112,14 @@ class _PostCardState extends State<PostCard> {
         _isBookmarked = newState;
         _isToggling = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isBookmarked ? 'Post bookmarked' : 'Bookmark removed'),
+          backgroundColor: AppColors.darkBlue,
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -219,7 +227,7 @@ class _PostCardState extends State<PostCard> {
                               color: AppColors.textLight,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.grey.withOpacity(0.25),
+                                color: Colors.grey.withValues(alpha: 0.25),
                               ),
                             ),
                             child: ListTile(
