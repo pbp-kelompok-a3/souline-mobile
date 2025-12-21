@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/models/event_model.dart';
 import '../../shared/models/studio_entry.dart';
+import '../studio/studio_service.dart';
+import 'events_service.dart';
 
 class AddEventPage extends StatefulWidget {
   final EventModel? editEvent;
@@ -18,79 +20,37 @@ class _AddEventPageState extends State<AddEventPage> {
   final _nameCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _imageUrlCtrl = TextEditingController(); // <- untuk URL image opsional
+  final _imageUrlCtrl = TextEditingController();
 
   Studio? _selectedStudio;
   StudioEntry? _studioEntry;
-
   bool _loading = false;
-  String authToken = '';
-
-  String joinBase(String path) {
-    final base = AppConstants.baseUrl;
-    if (base.endsWith('/')) return '$base$path';
-    return '$base/$path';
-  }
 
   @override
   void initState() {
     super.initState();
-    _loadToken();
-    _fetchStudios();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchStudios());
     if (widget.editEvent != null) {
       _nameCtrl.text = widget.editEvent!.name;
-      _dateCtrl.text =
-          widget.editEvent!.date.toIso8601String().substring(0, 10);
+      _dateCtrl.text = widget.editEvent!.date.toIso8601String().substring(
+        0,
+        10,
+      );
       _descCtrl.text = widget.editEvent!.description;
-      _imageUrlCtrl.text = widget.editEvent!.poster; // ambil URL jika ada
+      _imageUrlCtrl.text = widget.editEvent!.poster;
     }
-  }
-
-  Future<void> _loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    authToken = prefs.getString('auth_token') ?? '';
   }
 
   Future<void> _fetchStudios() async {
     try {
-      final candidates = [
-        joinBase('studio/json/'),
-        joinBase('studios/json/'),
-      ];
+      final request = context.read<CookieRequest>();
+      final service = StudioService(request);
+      final entry = await service.fetchStudios();
 
-      http.Response resp;
-      bool got = false;
-      Exception? lastEx;
-      for (final u in candidates) {
-        try {
-          final uri = Uri.parse(u);
-          final headers = <String, String>{'Accept': 'application/json'};
-          if (authToken.isNotEmpty) headers['Authorization'] = 'Token $authToken';
-          resp = await http.get(uri, headers: headers);
-          if (resp.statusCode == 200) {
-            final ct = resp.headers['content-type'] ?? '';
-            if (!ct.contains('application/json') && !ct.contains('text/json')) {
-              throw Exception(
-                  'Unexpected content-type: $ct (body starts: ${resp.body.substring(0, resp.body.length > 80 ? 80 : resp.body.length)})');
-            }
-            final data = studioEntryFromJson(resp.body);
-            if (!mounted) return;
-            setState(() => _studioEntry = data);
-            got = true;
-            break;
-          } else {
-            lastEx = Exception('Status ${resp.statusCode} from $u');
-          }
-        } catch (e) {
-          lastEx = Exception('Error fetching $u: $e');
-          continue;
-        }
-      }
+      if (!mounted) return;
+      setState(() => _studioEntry = entry);
 
-      if (!got) {
-        throw lastEx ?? Exception('Failed to fetch studios');
-      }
-
+      // Pre-select studio if editing
       if (widget.editEvent != null && _studioEntry != null) {
         Studio? pick;
         for (var city in _studioEntry!.cities) {
@@ -102,13 +62,13 @@ class _AddEventPageState extends State<AddEventPage> {
           }
           if (pick != null) break;
         }
-        if (pick != null && mounted) setState(() => _selectedStudio = pick);
+        if (pick != null) setState(() => _selectedStudio = pick);
       }
     } catch (e) {
-      final msg = e.toString();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error fetching studios: $msg')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching studios: $e')));
       }
     }
   }
@@ -127,62 +87,57 @@ class _AddEventPageState extends State<AddEventPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedStudio == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a studio')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a studio')));
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      final uri = widget.editEvent == null
-          ? Uri.parse(joinBase('events/api/create/'))
-          : Uri.parse(joinBase('events/api/${widget.editEvent!.id}/edit/'));
+      final request = context.read<CookieRequest>();
+      final service = EventService(request, AppConstants.baseUrl);
 
-      final request = http.MultipartRequest('POST', uri);
-      request.fields['name'] = _nameCtrl.text.trim();
-      request.fields['date'] = _dateCtrl.text.trim();
-      request.fields['description'] = _descCtrl.text.trim();
-      request.fields['location'] = _selectedStudio!.namaStudio;
-
-      if (_imageUrlCtrl.text.trim().isNotEmpty) {
-        request.fields['poster_url'] = _imageUrlCtrl.text.trim();
+      bool success;
+      if (widget.editEvent == null) {
+        // Create new event
+        success = await service.createEvent(
+          name: _nameCtrl.text.trim(),
+          date: _dateCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          location: _selectedStudio!.namaStudio,
+          posterUrl: _imageUrlCtrl.text.trim().isNotEmpty
+              ? _imageUrlCtrl.text.trim()
+              : null,
+        );
+      } else {
+        // Update existing event
+        success = await service.updateEvent(
+          eventId: widget.editEvent!.id,
+          name: _nameCtrl.text.trim(),
+          date: _dateCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          location: _selectedStudio!.namaStudio,
+          posterUrl: _imageUrlCtrl.text.trim().isNotEmpty
+              ? _imageUrlCtrl.text.trim()
+              : null,
+        );
       }
-
-      if (authToken.isNotEmpty) {
-        request.headers['Authorization'] = 'Token $authToken';
-      }
-      request.headers['Accept'] = 'application/json';
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (!mounted) return;
-
-      final success = widget.editEvent == null
-          ? response.statusCode == 201
-          : response.statusCode == 200;
 
       if (success) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.editEvent == null ? 'Event added' : 'Event updated'),
-          ),
-        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: ${response.statusCode} — ${response.body}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to save event')));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      setState(() => _loading = false);
     }
   }
 
@@ -201,71 +156,303 @@ class _AddEventPageState extends State<AddEventPage> {
 
     return Scaffold(
       backgroundColor: AppColors.cream,
-      appBar: AppBar(
-          title: Text(isEdit ? 'Edit Event' : 'Add Event'),
-          backgroundColor: AppColors.cream),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _imageUrlCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Image URL (optional)',
-                    hintText: 'Enter poster URL'),
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Required' : null),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _dateCtrl,
-                decoration: const InputDecoration(labelText: 'Date'),
-                readOnly: true,
-                onTap: _pickDate,
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              _studioEntry == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : DropdownButtonFormField<Studio>(
-                      initialValue: _selectedStudio,
-                      decoration: const InputDecoration(labelText: 'Location'),
-                      items: _studioEntry!.cities
-                          .expand((city) => city.studios)
-                          .map((studio) => DropdownMenuItem(
-                                value: studio,
-                                child: Text(studio.namaStudio),
-                              ))
-                          .toList(),
-                      onChanged: (val) => setState(() => _selectedStudio = val),
-                      validator: (val) => val == null ? 'Required' : null,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      onPressed: () => Navigator.pop(context),
+                      color: AppColors.darkBlue,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-              const SizedBox(height: 12),
-              TextFormField(
+                    const SizedBox(width: 16),
+                    Text(
+                      isEdit ? 'Edit Event' : 'Add Events',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Post Image / URL Input
+                Center(
+                  child: GestureDetector(
+                    onTap: () async {
+                      final url = await _showImageUrlDialog();
+                      if (url != null) {
+                        setState(() {
+                          _imageUrlCtrl.text = url;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 200,
+                      height: 260,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBEBEB),
+                        borderRadius: BorderRadius.circular(20),
+                        image: _imageUrlCtrl.text.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(_imageUrlCtrl.text),
+                                fit: BoxFit.cover,
+                                onError: (_, __) {},
+                              )
+                            : null,
+                      ),
+                      child: _imageUrlCtrl.text.isEmpty
+                          ? const Center(
+                              child: Icon(
+                                Icons.add,
+                                size: 48,
+                                color: AppColors.lightBlue,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                if (_imageUrlCtrl.text.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Center(
+                      child: Text(
+                        "Tap to add image URL",
+                        style: TextStyle(
+                          color: AppColors.textMuted.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 32),
+
+                // Name
+                _buildLabel('Name'),
+                _buildTextField(
+                  controller: _nameCtrl,
+                  hint: 'Enter Event Name',
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Date
+                _buildLabel('Date'),
+                _buildTextField(
+                  controller: _dateCtrl,
+                  hint: 'DD/MM/YY',
+                  readOnly: true,
+                  onTap: _pickDate,
+                  suffixIcon: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: AppColors.darkBlue,
+                    size: 20,
+                  ),
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Location
+                _buildLabel('Location'),
+                _studioEntry == null
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: LinearProgressIndicator(),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButtonFormField<Studio>(
+                            value: _selectedStudio,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.darkBlue,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                            ),
+                            hint: const Text(
+                              'Enter Location',
+                              style: TextStyle(color: Color(0xFFAAAAAA)),
+                            ),
+                            isExpanded: true,
+                            items: _studioEntry!.cities
+                                .expand((city) => city.studios)
+                                .map(
+                                  (studio) => DropdownMenuItem(
+                                    value: studio,
+                                    child: Text(
+                                      studio.namaStudio,
+                                      style: const TextStyle(
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => _selectedStudio = val),
+                            validator: (val) => val == null ? 'Required' : null,
+                          ),
+                        ),
+                      ),
+                const SizedBox(height: 16),
+
+                // Description
+                _buildLabel('Description'),
+                _buildTextField(
                   controller: _descCtrl,
+                  hint: 'Write description about the event...',
                   maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Description')),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : Text(isEdit ? 'Save' : 'Add Event'),
-              ),
-            ],
+                ),
+
+                const SizedBox(height: 32),
+
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.darkBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            isEdit ? 'Save Changes' : 'Create Event',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: AppColors.darkBlue,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
+        maxLines: maxLines,
+        validator: validator,
+        style: const TextStyle(color: AppColors.textDark),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFFAAAAAA)),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          suffixIcon: suffixIcon,
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _showImageUrlDialog() async {
+    final ctrl = TextEditingController(text: _imageUrlCtrl.text);
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Image URL'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            hintText: 'https://example.com/image.jpg',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('Set'),
+          ),
+        ],
       ),
     );
   }
