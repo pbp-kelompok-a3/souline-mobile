@@ -124,7 +124,7 @@ class _PostCardState extends State<PostCard> {
                         ),
                         if (detail == false)
                           Text(
-                            timeAgo(post.created_at),
+                            timeAgo(post.createdAt),
                             style: TextStyle(
                               color: AppColors.textMuted,
                               fontSize: 12,
@@ -194,7 +194,7 @@ class _PostCardState extends State<PostCard> {
 
                     if (detail == true)
                       Text(
-                        DateFormat("h:mm a - d MMM yy").format(post.created_at),
+                        DateFormat("h:mm a - d MMM yy").format(post.createdAt),
                         style: TextStyle(
                           color: AppColors.textMuted
                         ),
@@ -212,13 +212,23 @@ class _PostCardState extends State<PostCard> {
                           ),
                           constraints: const BoxConstraints(),
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CommentFormPage(post: post),
-                              ),
-                            );
-                          },
+                            final request = context.read<CookieRequest>();
+                            if (request.loggedIn) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CommentFormPage(post: post),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("You must be logged in to perform this action."),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
                         ),
                         Text(
                           "${post.commentCount}",

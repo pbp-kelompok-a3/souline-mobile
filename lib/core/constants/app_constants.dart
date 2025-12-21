@@ -5,8 +5,7 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // API URLs
-  // static const String baseUrl = 'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/';
-  static const String baseUrl = 'http://localhost:8000/';
+  static const String baseUrl = 'https://farrel-rifqi-souline.pbp.cs.ui.ac.id/';
 
   // Shared preferences keys
   static const String userTokenKey = 'user_token';

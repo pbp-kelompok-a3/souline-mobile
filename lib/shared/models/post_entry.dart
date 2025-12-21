@@ -39,8 +39,9 @@ class Result {
   bool likedByUser;
   int commentCount;
   List<Comment> comments;
-  DateTime created_at;
+  DateTime createdAt;
   Map<String, dynamic>? attachment;
+  bool isOwner;
 
   Result({
     required this.id,
@@ -51,8 +52,9 @@ class Result {
     required this.likedByUser,
     required this.commentCount,
     required this.comments,
-    required this.created_at,
+    required this.createdAt,
     this.attachment,
+    required this.isOwner,
   });
 
   factory Result.fromJson(Map<String, dynamic> json) {
@@ -61,7 +63,6 @@ class Result {
         id: json["id"],
         authorUsername: json["author_username"] ?? "Unknown",
         text: json["text"] ?? "",
-        // Allow empty string OR null
         image: (json["image"] == null || json["image"] == "") ? null : json["image"], 
         likeCount: json["like_count"] ?? 0,
         likedByUser: json["liked_by_user"] ?? false,
@@ -69,14 +70,15 @@ class Result {
         comments: json["comments"] == null
             ? []
             : List<Comment>.from(json["comments"]!.map((x) => Comment.fromJson(x))),
-        created_at: DateTime.parse(json["created_at"]),
+        createdAt: DateTime.parse(json["createdAt"]),
         attachment: json["attachment"],
+        isOwner: json["is_owner"] ?? false,
       );
     } catch (e) {
       print("Error parsing Post ID: ${json['id']}");
       print("JSON Data: $json");
       print("Error Details: $e");
-      rethrow; // Rethrow to see trace
+      rethrow;
     }
   }
 
@@ -89,7 +91,7 @@ class Result {
     "liked_by_user": likedByUser,
     "comment_count": commentCount,
     "comments": List<dynamic>.from(comments.map((x) => x.toJson())),
-    "created_at": created_at.toIso8601String(),
+    "createdAt": createdAt.toIso8601String(),
     "attachment": attachment,
   };
 }
@@ -113,7 +115,7 @@ class Comment {
         id: json["id"],
         authorUsername: json["author_username"] ?? "Anonymous",
         content: json["content"] ?? "",
-        createdAt: DateTime.parse(json["created_at"]),
+        createdAt: DateTime.parse(json["createdAt"]),
       );
     } catch (e) {
       print("Error parsing Comment: $e");
@@ -126,6 +128,6 @@ class Comment {
     "id": id,
     "author_username": authorUsername,
     "content": content,
-    "created_at": createdAt.toIso8601String(),
+    "createdAt": createdAt.toIso8601String(),
   };
 }

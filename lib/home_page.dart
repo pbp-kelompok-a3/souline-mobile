@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:souline_mobile/modules/timeline/timeline_service.dart';
 
 import './core/constants/app_constants.dart';
 import './shared/widgets/left_drawer.dart';
@@ -63,6 +64,7 @@ class _HomePageState extends State<HomePage> {
 
   // Timeline section state
   List<Result> _timelinePosts = [];
+  bool _isLoadingTimeline = true;
 
   @override
   void initState() {
@@ -71,6 +73,7 @@ class _HomePageState extends State<HomePage> {
     _loadMockData();
     _loadStudios();
     _loadEvents();
+    _loadTimeline();
   }
 
   Future<void> _checkLoginStatus() async {
@@ -123,7 +126,7 @@ class _HomePageState extends State<HomePage> {
         
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
       }
     } catch (e) {
@@ -232,6 +235,29 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadTimeline() async {
+  setState(() => _isLoadingTimeline = true);
+
+  try {
+    final request = context.read<CookieRequest>();
+    final service = TimelineService(request);
+    final entry = await service.fetchPosts();
+
+    if (!mounted) return;
+
+    setState(() {
+      _timelinePosts = entry.results; 
+      _isLoadingTimeline = false;
+    });
+
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() => _isLoadingTimeline = false);
+    debugPrint('Error loading posts: $e');
+  }
+}
+
   /// Load mock data for sections without API implementation
   void _loadMockData() {
     // Mock resources data
@@ -320,42 +346,6 @@ class _HomePageState extends State<HomePage> {
         rating: 4.4,
         link: 'https://shopee.co.id/auraapparel',
         timelineReviews: [],
-      ),
-    ];
-
-    // Mock timeline posts
-    _timelinePosts = [
-      Result(
-        id: 1,
-        authorUsername: 'yogalover',
-        text:
-            'Just finished my morning yoga session! Feeling refreshed and ready to start the day 🧘‍♀️',
-        likeCount: 24,
-        commentCount: 5,
-        likedByUser: false,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      Result(
-        id: 2,
-        authorUsername: 'pilatesqueen',
-        text:
-            'Anyone tried the new pilates studio in Kemang? The instructors are amazing!',
-        likeCount: 18,
-        commentCount: 12,
-        likedByUser: true,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      Result(
-        id: 3,
-        authorUsername: 'fitnessjunkie',
-        text: 'Week 4 of my yoga challenge complete! The progress is real 💪',
-        likeCount: 45,
-        commentCount: 8,
-        likedByUser: false,
-        comments: [],
-        created_at: DateTime.now().subtract(const Duration(days: 1)),
       ),
     ];
   }

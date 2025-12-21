@@ -10,6 +10,18 @@ class TimelineService {
 
   String _url(String path) => '${AppConstants.baseUrl}$path';
 
+  Future<bool> isAdmin() async {
+    try { 
+      final data = await request.get(_url('timeline/api/is-admin/'));
+      if (data is Map<String, dynamic> && data.containsKey('is_admin')) {
+        return data['is_admin'] == true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+  
   Future<Post> fetchPosts() async {
     final response = await request.get(_url('timeline/api/timeline/'));
     if (response is Map<String, dynamic>) {
@@ -44,12 +56,31 @@ class TimelineService {
     _ensureLoggedIn();
     
     final res = await request.postJson(
-      _url('timeline/like_post_flutter/$postId/'),
+      _url('timeline/api/post/$postId/like/'),
       jsonEncode({}),
     );
 
     _assertSuccess(res);
   }
+
+  Future<bool> deletePost(int postId) async {
+    final url = _url("timeline/api/post/$postId/delete/");
+
+    try {
+      final response = await request.postJson(url, null);
+
+      if (response['status'] == 'success') {
+        return true;
+      } else {
+        print("Delete failed: ${response['message']}");
+        return false;
+      }
+    } catch (e) {
+      print("Error deleting post: $e");
+      return false;
+    }
+  }
+
 
   Future<void> addComment(int postId, String content) async {
     _ensureLoggedIn();
@@ -57,7 +88,7 @@ class TimelineService {
     final payload = {'content': content};
 
     final res = await request.postJson(
-      _url('timeline/add_comment_flutter/$postId/'),
+      _url('timeline/api/post/$postId/comment'),
       jsonEncode(payload),
     );
 
