@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../modules/user/bookmarks_service.dart';
 import '../../models/post_entry.dart';
 
 class HomeTimelineCard extends StatefulWidget {
@@ -14,12 +17,58 @@ class HomeTimelineCard extends StatefulWidget {
 
 class _HomeTimelineCardState extends State<HomeTimelineCard> {
   bool _isBookmarked = false;
+  bool _isToggling = false;
 
-  void _toggleBookmark() {
-    setState(() {
-      _isBookmarked = !_isBookmarked;
-    });
-    // TODO: Implement bookmark API
+  @override
+  void initState() {
+    super.initState();
+    _checkBookmarkStatus();
+  }
+
+  Future<void> _checkBookmarkStatus() async {
+    final request = context.read<CookieRequest>();
+    if (!request.loggedIn) return;
+
+    final service = BookmarksService(request);
+    final isBookmarked = await service.isBookmarked(
+      BookmarkContentType.post,
+      widget.post.id.toString(),
+    );
+
+    if (mounted) {
+      setState(() => _isBookmarked = isBookmarked);
+    }
+  }
+
+  Future<void> _toggleBookmark() async {
+    final request = context.read<CookieRequest>();
+
+    if (!request.loggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to add a bookmark'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+      return;
+    }
+
+    if (_isToggling) return;
+    setState(() => _isToggling = true);
+
+    final service = BookmarksService(request);
+    final newState = await service.toggleBookmark(
+      appLabel: BookmarkAppLabel.timeline,
+      model: BookmarkContentType.post,
+      objectId: widget.post.id.toString(),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isBookmarked = newState;
+        _isToggling = false;
+      });
+    }
   }
 
   String _getInitials(String username) {

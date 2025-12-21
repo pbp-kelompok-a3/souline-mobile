@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:pbp_django_auth/pbp_django_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/shared/models/studio_entry.dart';
 import '../studio_detail_page.dart';
 import '../studio_service.dart';
+import '../../user/bookmarks_service.dart';
 
 class StudioCard extends StatefulWidget {
   final Studio studio;
@@ -23,6 +26,29 @@ class StudioCard extends StatefulWidget {
 
 class _StudioCardState extends State<StudioCard> {
   bool _isBookmarked = false;
+  bool _isToggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBookmarkStatus();
+  }
+
+  /// Check if this studio is bookmarked
+  Future<void> _checkBookmarkStatus() async {
+    final request = context.read<CookieRequest>();
+    if (!request.loggedIn) return;
+
+    final service = BookmarksService(request);
+    final isBookmarked = await service.isBookmarked(
+      BookmarkContentType.studio,
+      widget.studio.id,
+    );
+
+    if (mounted) {
+      setState(() => _isBookmarked = isBookmarked);
+    }
+  }
 
   Future<void> _openGoogleMaps() async {
     final Uri url = Uri.parse(widget.studio.gmapsLink);
@@ -50,18 +76,46 @@ class _StudioCardState extends State<StudioCard> {
     );
   }
 
-  void _toggleBookmark() {
-    setState(() {
-      _isBookmarked = !_isBookmarked;
-    });
-    // TODO: Implement bookmark API
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isBookmarked ? 'Studio bookmarked' : 'Bookmark removed'),
-        backgroundColor: AppColors.darkBlue,
-        duration: const Duration(seconds: 1),
-      ),
+  Future<void> _toggleBookmark() async {
+    final request = context.read<CookieRequest>();
+
+    // Check if user is logged in
+    if (!request.loggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to add a bookmark'),
+          backgroundColor: AppColors.darkBlue,
+        ),
+      );
+      return;
+    }
+
+    if (_isToggling) return;
+    setState(() => _isToggling = true);
+
+    final service = BookmarksService(request);
+    final newState = await service.toggleBookmark(
+      appLabel: BookmarkAppLabel.studio,
+      model: BookmarkContentType.studio,
+      objectId: widget.studio.id,
     );
+
+    if (mounted) {
+      setState(() {
+        _isBookmarked = newState;
+        _isToggling = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isBookmarked ? 'Studio bookmarked' : 'Bookmark removed',
+          ),
+          backgroundColor: AppColors.darkBlue,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   @override

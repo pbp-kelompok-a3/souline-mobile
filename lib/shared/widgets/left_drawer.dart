@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../modules/user/login.dart';
 import '../../modules/user/user_page.dart';
+import '../../modules/user/bookmarks_page.dart';
 import '../../home_page.dart';
 
 class LeftDrawer extends StatefulWidget {
@@ -18,13 +19,25 @@ class _LeftDrawerState extends State<LeftDrawer> {
   String _location = 'Location not set';
   bool _isLoading = false;
 
+  // Store cached data
+  static String? _cachedUsername;
+  static String? _cachedLocation;
+  static bool _hasFetched = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final request = context.read<CookieRequest>();
       if (request.loggedIn) {
-        _loadProfile(request);
+        if (_hasFetched && _cachedUsername != null) {
+          setState(() {
+            _username = _cachedUsername!;
+            _location = _cachedLocation ?? 'Location not set';
+          });
+        } else {
+          _loadProfile(request);
+        }
       }
     });
   }
@@ -37,9 +50,13 @@ class _LeftDrawerState extends State<LeftDrawer> {
       );
 
       if (mounted && response['status'] == true) {
+        _cachedUsername = response['username'];
+        _cachedLocation = response['kota'] ?? 'Location not set';
+        _hasFetched = true;
+
         setState(() {
-          _username = response['username'];
-          _location = response['kota'] ?? 'Location not set';
+          _username = _cachedUsername!;
+          _location = _cachedLocation!;
           _isLoading = false;
         });
       } else {
@@ -48,6 +65,13 @@ class _LeftDrawerState extends State<LeftDrawer> {
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Clear cache on logout
+  static void clearCache() {
+    _cachedUsername = null;
+    _cachedLocation = null;
+    _hasFetched = false;
   }
 
   @override
@@ -73,6 +97,7 @@ class _LeftDrawerState extends State<LeftDrawer> {
                   vertical: 20,
                 ),
                 children: [
+                  const SizedBox(height: 30),
                   _buildHeader(context, request.loggedIn),
                   const SizedBox(height: 20),
                   Divider(color: AppColors.darkBlue.withValues(alpha: 0.5)),
@@ -122,8 +147,12 @@ class _LeftDrawerState extends State<LeftDrawer> {
                     icon: Icons.bookmark_border,
                     title: 'Bookmarks',
                     onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Navigate to Bookmarks Page
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BookmarksPage(),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -163,9 +192,14 @@ class _LeftDrawerState extends State<LeftDrawer> {
           const SizedBox(height: 16),
           if (_isLoading)
             const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              height: 50,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             )
           else ...[
             Text(
@@ -177,7 +211,7 @@ class _LeftDrawerState extends State<LeftDrawer> {
               ),
             ),
             const SizedBox(height: 4),
-            if (isLoggedIn)
+            if (isLoggedIn) 
               Text(
                 _location,
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
@@ -227,13 +261,19 @@ class _LeftDrawerState extends State<LeftDrawer> {
             '${AppConstants.baseUrl}auth/logout/',
           );
           if (context.mounted) {
+            _LeftDrawerState.clearCache();
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(response['message']),
                 backgroundColor: AppColors.darkBlue,
               ),
             );
-            Navigator.pop(context);
+            
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const HomePage()),
+              (route) => false,
+            );
           }
         },
       );
