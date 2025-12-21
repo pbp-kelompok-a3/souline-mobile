@@ -3,6 +3,7 @@ import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/home_page.dart';
 import 'package:souline_mobile/modules/user/register.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -53,8 +54,10 @@ class _LoginPageState extends State<LoginPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12.0),
@@ -66,8 +69,10 @@ class _LoginPageState extends State<LoginPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                     obscureText: true,
                   ),
@@ -78,11 +83,8 @@ class _LoginPageState extends State<LoginPage> {
                       String password = _passwordController.text;
 
                       final response = await request.login(
-                        "https://farrel-rifqi-souline.pbp.cs.ui.ac.id/auth/login/",
-                        {
-                          'username': username,
-                          'password': password,
-                        }
+                        "${AppConstants.baseUrl}auth/login/",
+                        {'username': username, 'password': password},
                       );
 
                       if (request.loggedIn) {
@@ -92,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const HomePage()
+                              builder: (context) => const HomePage(),
                             ),
                           );
                           ScaffoldMessenger.of(context)
@@ -100,6 +102,7 @@ class _LoginPageState extends State<LoginPage> {
                             ..showSnackBar(
                               SnackBar(
                                 content: Text("$message Welcome, $uname."),
+                                backgroundColor: AppColors.darkBlue,
                               ),
                             );
                         }
@@ -137,7 +140,7 @@ class _LoginPageState extends State<LoginPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const RegisterPage()
+                          builder: (context) => const RegisterPage(),
                         ),
                       );
                     },

@@ -6,7 +6,7 @@ class AppHeader extends StatelessWidget {
   final VoidCallback? onFilterPressed;
   final String? filterHeroTag;
   final Widget? filterButton;
-  final bool showDrawerButton; // <-- tampilkan left drawer
+  final bool showDrawerButton; // Show left drawer button
 
   const AppHeader({
     super.key,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:souline_mobile/core/constants/app_constants.dart';
 import 'package:souline_mobile/modules/user/login.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -64,12 +65,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     controller: _usernameController,
                     decoration: const InputDecoration(
                       labelText: 'Username',
-                      hintText: 'Enter your username (letters and numbers only)',
+                      hintText:
+                          'Enter your username (letters and numbers only)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -87,8 +91,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -107,8 +113,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -127,8 +135,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12.0)),
                       ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                     ),
                     items: _kotaChoices.map((String kota) {
                       return DropdownMenuItem<String>(
@@ -151,32 +161,36 @@ class _RegisterPageState extends State<RegisterPage> {
                       String kota = _selectedKota ?? '';
 
                       final response = await request.postJson(
-                        "https://farrel-rifqi-souline.pbp.cs.ui.ac.id/auth/register/",
+                        "${AppConstants.baseUrl}auth/register/",
                         jsonEncode({
                           "username": username,
                           "password1": password1,
                           "password2": password2,
                           "kota": kota,
-                        })
+                        }),
                       );
-                      
+
                       if (context.mounted) {
                         if (response['status'] == 'success') {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Successfully registered!'),
+                              backgroundColor: AppColors.darkBlue,
                             ),
                           );
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const LoginPage()
+                              builder: (context) => const LoginPage(),
                             ),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(response['message'] ?? 'Failed to register!'),
+                              content: Text(
+                                response['message'] ?? 'Failed to register!',
+                              ),
+                              backgroundColor: AppColors.darkBlue,
                             ),
                           );
                         }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../events_page.dart';
+import '../../../shared/models/event_model.dart';
 import '../../../core/constants/app_constants.dart';
 import 'package:intl/intl.dart';
+import '../../studio/studio_page.dart'; 
 
 class EventCard extends StatelessWidget {
   final EventModel event;
@@ -39,7 +40,7 @@ class EventCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // left image
+          // Left image
           ClipRRect(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
@@ -62,11 +63,16 @@ class EventCard extends StatelessWidget {
                     width: 120,
                     height: 120,
                     color: Colors.grey[100],
-                    child: const Icon(Icons.image, color: Colors.grey, size: 36),
+                    child: const Center(
+                      child: Text(
+                        'No Image',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
                   ),
           ),
 
-          // right content
+          // Right content
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -83,10 +89,30 @@ class EventCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    DateFormat("dd MMM yyyy").format(event.date),
+                    DateFormat("dd MMMM yyyy", "en_US").format(event.date),
                     style: const TextStyle(color: Color(0xFF7A8D9C), fontSize: 12),
                   ),
                   const SizedBox(height: 8),
+                  // Location link
+                  if (event.location.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StudioPage(studioId: event.locationId),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        event.location,
+                        style: const TextStyle(
+                          color: AppColors.orange,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
                   Text(
                     event.description,
                     maxLines: 3,
@@ -95,47 +121,30 @@ class EventCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // small tag (optional). You can change the label dynamically if you have categories.
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF6F5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      GestureDetector(
+                        onTap: onDetail,
                         child: const Text(
-                          'Yoga',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF229A96)),
+                          'Detail',
+                          style: TextStyle(color: AppColors.orange, fontWeight: FontWeight.w600),
                         ),
                       ),
-
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: onDetail,
-                            child: const Text(
-                              'Detail',
-                              style: TextStyle(color: AppColors.orange, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          if (isOwner) const SizedBox(width: 8),
-                          if (isOwner && onEdit != null)
-                            IconButton(
-                              onPressed: onEdit,
-                              icon: const Icon(Icons.edit, color: Colors.orange),
-                              tooltip: 'Edit',
-                            ),
-                          if (isOwner && onDelete != null)
-                            IconButton(
-                              onPressed: onDelete,
-                              icon: const Icon(Icons.delete, color: Colors.redAccent),
-                              tooltip: 'Delete',
-                            ),
-                        ],
-                      )
+                      if (isOwner) const SizedBox(width: 8),
+                      if (isOwner && onEdit != null)
+                        IconButton(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit, color: Colors.orange),
+                          tooltip: 'Edit',
+                        ),
+                      if (isOwner && onDelete != null)
+                        IconButton(
+                          onPressed: onDelete,
+                          icon: const Icon(Icons.delete, color: Colors.redAccent),
+                          tooltip: 'Delete',
+                        ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
