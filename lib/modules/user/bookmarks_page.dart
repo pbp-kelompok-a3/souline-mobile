@@ -247,7 +247,7 @@ class _BookmarksPageState extends State<BookmarksPage> {
     try {
       final request = context.read<CookieRequest>();
       final response = await request.get(
-        '${AppConstants.baseUrl}timeline/posts/json/',
+        '${AppConstants.baseUrl}timeline/api/timeline/',
       );
 
       final postEntry = Post.fromJson(response);

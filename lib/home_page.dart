@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:pbp_django_auth/pbp_django_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:souline_mobile/modules/timeline/timeline_service.dart';
+import 'package:souline_mobile/modules/events/events_service.dart';
 
 import './core/constants/app_constants.dart';
 import './shared/widgets/left_drawer.dart';
@@ -29,7 +28,6 @@ import 'modules/sportswear/sportswear_service.dart';
 import 'modules/resources/resources_page.dart';
 
 import 'modules/timeline/timeline_page.dart';
-import 'modules/timeline/timeline_service.dart';
 import 'modules/timeline/post_detail.dart';
 import 'modules/events/events_page.dart';
 import 'modules/events/events_detail.dart';
@@ -55,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   // Resources section state
   String? _resourceFilter; // null = all, 'beginner', 'intermediate', 'advanced'
   List<ResourcesEntry> _resources = [];
+  bool _isLoadingResources = true;
 
   // Sportswear section state
   List<Product> _sportswear = [];
@@ -67,9 +66,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadMockData();
     _loadStudios();
     _loadEvents();
+    _loadResources();
     _loadSportswear();
     _loadTimeline();
   }
@@ -85,9 +84,11 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
+      // Set selected city from API if not already set
       final userCity = entry.userKota;
       final effectiveCity = _selectedCity ?? userCity;
 
+      // Get studios for selected city (limit to 10)
       final studios = <Studio>[];
       for (final city in entry.cities) {
         if (city.name == effectiveCity) {
@@ -97,7 +98,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       setState(() {
-        _selectedCity = effectiveCity;
+        _selectedCity = effectiveCity; // Set from API response
         _studios = studios;
         _isLoadingStudios = false;
       });
@@ -109,48 +110,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Load sportswear from API
-    Future<void> _loadSportswear() async {
-      if (!mounted) return;
-      setState(() => _isLoadingSportswear = true);
-      try {
-        final request = context.read<CookieRequest>();
-        final service = SportswearService(request);
-        final products = await service.fetchBrands();
-
-        if (!mounted) return;
-
-        setState(() {
-          _sportswear = products.take(10).toList();
-          _isLoadingSportswear = false;
-        });
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _isLoadingSportswear = false);
-        debugPrint('Error loading sportswear: $e');
-      }
-    }
-
-  /// Load timeline posts from API (HANYA ADA SATU DI SINI)
-  Future<void> _loadTimeline() async {
-    setState(() => _isLoadingTimeline = true);
+  Future<void> _loadSportswear() async {
+    if (!mounted) return;
+    setState(() => _isLoadingSportswear = true);
     try {
       final request = context.read<CookieRequest>();
-      final service = TimelineService(request);
-      final entry = await service.fetchPosts();
+      final service = SportswearService(request);
+      final products = await service.fetchBrands();
 
       if (!mounted) return;
 
       setState(() {
-        // Sort by latest (descending ID) and take top 3
-        final sorted = List<Result>.from(entry.results);
-        sorted.sort((a, b) => b.id.compareTo(a.id));
-        _timelinePosts = sorted.take(3).toList();
-        _isLoadingTimeline = false;
+        _sportswear = products.take(10).toList();
+        _isLoadingSportswear = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoadingTimeline = false);
-      debugPrint('Error loading timeline: $e');
+      setState(() => _isLoadingSportswear = false);
+      debugPrint('Error loading sportswear: $e');
     }
   }
 
@@ -173,30 +150,16 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoadingEvents = true);
 
     try {
-      String endpoint = 'events/json/';
-      if (_eventFilter == 'soon') {
-        endpoint = 'events/json/soon/';
-      } else if (_eventFilter == 'later') {
-        endpoint = 'events/json/later/';
-      }
-
-      final url = _joinBaseUrl(endpoint);
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final request = context.read<CookieRequest>();
+      final service = EventService(request, AppConstants.baseUrl);
+      final events = await service.fetchEvents(filter: _eventFilter);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        setState(
-          () => _events = data.map((e) => EventModel.fromJson(e)).toList(),
-        );
+      setState(() {
+        _events = events;
         _isLoadingEvents = false;
-      } else {
-        throw Exception('Failed to load events (${response.statusCode})');
-      }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoadingEvents = false);
@@ -204,31 +167,65 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Load mock data for sections without API implementation
-  void _loadMockData() {
-    _resources = [
-      ResourcesEntry(
-        id: 1,
-        title: '30 MIN PILATES',
-        description:
-            'This beginner-to-moderate level Pilates class is perfect...',
-        youtubeUrl: 'https://www.youtube.com/embed/wtVyZmHnlxM',
-        videoId: 'wtVyZmHnlxM',
-        thumbnailUrl: 'https://img.youtube.com/vi/wtVyZmHnlxM/hqdefault.jpg',
-        level: 'beginner',
-      ),
-      ResourcesEntry(
-        id: 2,
-        title: '30 MIN FULL BODY',
-        description: 'Intermediate full body pilates...',
-        youtubeUrl: 'https://www.youtube.com/embed/C2HX2pNbUCM',
-        videoId: 'C2HX2pNbUCM',
-        thumbnailUrl: 'https://img.youtube.com/vi/C2HX2pNbUCM/hqdefault.jpg',
-        level: 'intermediate',
-      ),
-    ];
+  /// Load timeline posts from API
+  Future<void> _loadTimeline() async {
+    setState(() => _isLoadingTimeline = true);
+
+    try {
+      final request = context.read<CookieRequest>();
+      final service = TimelineService(request);
+      final entry = await service.fetchPosts();
+
+      if (!mounted) return;
+
+      setState(() {
+        _timelinePosts = entry.results;
+        _isLoadingTimeline = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoadingTimeline = false);
+      debugPrint('Error loading posts: $e');
+    }
   }
 
+  /// Load resources from API
+  Future<void> _loadResources() async {
+    setState(() => _isLoadingResources = true);
+
+    try {
+      final request = context.read<CookieRequest>();
+      final url = '${AppConstants.baseUrl}resources/api/';
+      final data = await request.get(url);
+
+      if (!mounted) return;
+
+      List<ResourcesEntry> parsed = [];
+      if (data is List) {
+        parsed = data
+            .whereType<Map<String, dynamic>>()
+            .map((e) => ResourcesEntry.fromJson(e))
+            .toList();
+      } else if (data is Map && data['results'] is List) {
+        parsed = (data['results'] as List)
+            .whereType<Map<String, dynamic>>()
+            .map((e) => ResourcesEntry.fromJson(e))
+            .toList();
+      }
+
+      setState(() {
+        _resources = parsed;
+        _isLoadingResources = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingResources = false);
+      debugPrint('Error loading resources: $e');
+    }
+  }
+
+  /// Filter resources by level
   List<ResourcesEntry> get _filteredResources {
     if (_resourceFilter == null) return _resources;
     return _resources
@@ -236,6 +233,7 @@ class _HomePageState extends State<HomePage> {
         .toList();
   }
 
+  /// Get filtered events
   List<EventModel> get _filteredEvents => _events;
 
   void _onCityChanged(UserKota? city) {
@@ -248,7 +246,7 @@ class _HomePageState extends State<HomePage> {
   void _onEventFilterChanged(String? filter) {
     if (filter != null && filter != _eventFilter) {
       setState(() => _eventFilter = filter);
-      _loadEvents();
+      _loadEvents(); // Reload with new filter
     }
   }
 
@@ -263,15 +261,21 @@ class _HomePageState extends State<HomePage> {
       drawer: const LeftDrawer(),
       body: Stack(
         children: [
+          // Column layout with sticky header
           Column(
             children: [
+              // Sticky Header with logo and search
               const HomeHeader(),
+
+              // Scrollable content below header
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 26),
+
+                      // Studio Section
                       _buildSectionHeader(
                         title: 'Studio',
                         dropdownValue: _selectedCity,
@@ -290,14 +294,23 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       _buildStudioSection(),
+
                       const SizedBox(height: 24),
+
+                      // Events Section
                       _buildSectionHeader(
                         title: 'Event',
                         dropdownValue: _eventFilter,
                         dropdownItems: const [
                           DropdownMenuItem(value: 'all', child: Text('All')),
-                          DropdownMenuItem(value: 'soon', child: Text('This Week')),
-                          DropdownMenuItem(value: 'later', child: Text('Later')),
+                          DropdownMenuItem(
+                            value: 'soon',
+                            child: Text('This Week'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'later',
+                            child: Text('Later'),
+                          ),
                         ],
                         onDropdownChanged: _onEventFilterChanged,
                         onSeeAll: () => Navigator.push(
@@ -306,44 +319,70 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       _buildEventsSection(),
+
                       const SizedBox(height: 24),
+
+                      // Resources Section
                       _buildSectionHeader<String?>(
                         title: 'Resources',
                         dropdownValue: _resourceFilter,
                         dropdownItems: const [
-                          DropdownMenuItem<String?>(value: null, child: Text('All')),
-                          DropdownMenuItem<String?>(value: 'beginner', child: Text('Beginner')),
-                          DropdownMenuItem<String?>(value: 'intermediate', child: Text('Intermediate')),
-                          DropdownMenuItem<String?>(value: 'advanced', child: Text('Advanced')),
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('All'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'beginner',
+                            child: Text('Beginner'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'intermediate',
+                            child: Text('Intermediate'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'advanced',
+                            child: Text('Advanced'),
+                          ),
                         ],
                         onDropdownChanged: _onResourceFilterChanged,
                         onSeeAll: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const ResourcesPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const ResourcesPage(),
+                          ),
                         ),
                       ),
                       _buildResourcesSection(),
+
                       const SizedBox(height: 24),
+
+                      // Sportswear Section
                       _buildSectionHeader(
                         title: 'Sportswear',
-                        onSeeAll: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SportswearPage()),
-                          );
-                          if (result == true) _loadSportswear();
-                        },
+                        onSeeAll: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SportswearPage(),
+                          ),
+                        ),
                       ),
                       _buildSportswearSection(),
+
                       const SizedBox(height: 24),
+
+                      // Timeline Section
                       _buildSectionHeader(
                         title: 'Timeline',
                         onSeeAll: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const TimelinePage()),
+                          MaterialPageRoute(
+                            builder: (_) => const TimelinePage(),
+                          ),
                         ),
                       ),
                       _buildTimelineSection(),
+
+                      // Bottom padding for navigation bar
                       const SizedBox(height: 100),
                     ],
                   ),
@@ -351,6 +390,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+
+          // Floating Navigation Bar
           const Positioned(
             bottom: 0,
             left: 0,
@@ -362,6 +403,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Build section header with title, dropdown, and "See All" button
   Widget _buildSectionHeader<T>({
     required String title,
     T? dropdownValue,
@@ -377,11 +419,25 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.darkBlue)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkBlue,
+                ),
+              ),
               if (onSeeAll != null)
                 GestureDetector(
                   onTap: onSeeAll,
-                  child: const Text('See All', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.orange)),
+                  child: const Text(
+                    'See All',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.orange,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -392,15 +448,24 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.lightBlue.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppColors.lightBlue.withValues(alpha: 0.5),
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<T>(
                   value: dropdownValue,
                   items: dropdownItems,
                   onChanged: onDropdownChanged,
-                  icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.darkBlue),
-                  style: const TextStyle(fontSize: 14, color: AppColors.darkBlue, fontFamily: 'Poppins'),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AppColors.darkBlue,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.darkBlue,
+                    fontFamily: 'Poppins',
+                  ),
                   isDense: true,
                 ),
               ),
@@ -411,60 +476,166 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Build Studio section with horizontal scroll
   Widget _buildStudioSection() {
-    if (_isLoadingStudios) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: AppColors.teal)));
-    if (_studios.isEmpty) return SizedBox(height: 200, child: Center(child: Text('No studios found', style: TextStyle(color: AppColors.textMuted))));
+    if (_isLoadingStudios) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
+    if (_studios.isEmpty) {
+      return SizedBox(
+        height: 200,
+        child: Center(
+          child: Text(
+            'No studios in ${userKotaValues.reverse[_selectedCity]}',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: _studios.length,
-        itemBuilder: (context, index) => HomeStudioCard(studio: _studios[index], onTap: () {}),
+        itemBuilder: (context, index) {
+          return HomeStudioCard(
+            studio: _studios[index],
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      StudioDetailPage(studio: _studios[index], isAdmin: false),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
+  /// Build Events section with horizontal scroll
   Widget _buildEventsSection() {
-    if (_isLoadingEvents) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: AppColors.teal)));
-    if (_events.isEmpty) return SizedBox(height: 200, child: Center(child: Text('No events found', style: TextStyle(color: AppColors.textMuted))));
+    // Show loading indicator
+    if (_isLoadingEvents) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
+    final events = _filteredEvents;
+
+    if (events.isEmpty) {
+      return SizedBox(
+        height: 200,
+        child: Center(
+          child: Text(
+            _eventFilter == 'soon'
+                ? 'No events this week'
+                : _eventFilter == 'later'
+                ? 'No upcoming events'
+                : 'No events available',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: _events.length,
-        itemBuilder: (context, index) => HomeEventCard(event: _events[index], posterUrl: _buildPosterUrl(_events[index].poster), onTap: () {}),
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final event = events[index];
+          return HomeEventCard(
+            event: event,
+            posterUrl: _buildPosterUrl(event.poster),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EventDetailPage(
+                    event: event,
+                    baseUrl: AppConstants.baseUrl,
+                    currentUsername: '', // TODO: Get from auth
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 
+  /// Build Resources section with horizontal scroll
   Widget _buildResourcesSection() {
-    final resources = _filteredResources;
-    if (resources.isEmpty) return SizedBox(height: 280, child: Center(child: Text('No resources found', style: TextStyle(color: AppColors.textMuted))));
+    // Show loading indicator
+    if (_isLoadingResources) {
+      return const SizedBox(
+        height: 280,
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
+    // Apply filter and limit to 5
+    final resources = _filteredResources.take(5).toList();
+
+    if (resources.isEmpty) {
+      return SizedBox(
+        height: 280,
+        child: Center(
+          child: Text(
+            _resourceFilter != null
+                ? 'No $_resourceFilter resources found'
+                : 'No resources found',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 280,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: resources.length,
-        itemBuilder: (context, index) => HomeResourceCard(resource: resources[index]),
+        itemBuilder: (context, index) {
+          return HomeResourceCard(resource: resources[index]);
+        },
       ),
     );
   }
 
+  /// Build Sportswear section with horizontal scroll
   Widget _buildSportswearSection() {
     if (_isLoadingSportswear) {
       return const SizedBox(
         height: 220,
-        child: Center(child: CircularProgressIndicator(color: AppColors.teal))
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
       );
     }
 
     if (_sportswear.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 220,
-        child: Center(child: Text('No sportswear available'))
+        child: Center(
+          child: Text(
+            'No sportswear available',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
       );
     }
 
@@ -474,18 +645,50 @@ class _HomePageState extends State<HomePage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: _sportswear.length,
-        itemBuilder: (context, index) => HomeSportswearCard(product: _sportswear[index]),
+        itemBuilder: (context, index) {
+          return HomeSportswearCard(product: _sportswear[index]);
+        },
       ),
     );
   }
 
+  /// Build Timeline section with vertical scroll (max 3 posts)
   Widget _buildTimelineSection() {
-    if (_isLoadingTimeline) return const Center(child: CircularProgressIndicator());
-    if (_timelinePosts.isEmpty) return const Center(child: Text('No posts yet'));
+    if (_isLoadingTimeline) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
+      );
+    }
+
+    final posts = _timelinePosts.take(3).toList();
+
+    if (posts.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Center(
+          child: Text(
+            'No posts yet',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: _timelinePosts.map((post) => HomeTimelineCard(post: post, onTap: () {})).toList(),
+        children: posts.map((post) {
+          return HomeTimelineCard(
+            post: post,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PostDetailPage(post: post)),
+              );
+            },
+          );
+        }).toList(),
       ),
     );
   }

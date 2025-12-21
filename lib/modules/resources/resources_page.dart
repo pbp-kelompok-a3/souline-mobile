@@ -204,13 +204,15 @@ class _ResourcesPageState extends State<ResourcesPage> {
                   r.level.toLowerCase().contains(q);
             }).toList();
 
-            final beginner =
-                all.where((r) => r.level.toLowerCase() == 'beginner').toList();
+            final beginner = all
+                .where((r) => r.level.toLowerCase() == 'beginner')
+                .toList();
             final intermediate = all
                 .where((r) => r.level.toLowerCase() == 'intermediate')
                 .toList();
-            final advanced =
-                all.where((r) => r.level.toLowerCase() == 'advanced').toList();
+            final advanced = all
+                .where((r) => r.level.toLowerCase() == 'advanced')
+                .toList();
 
             return RefreshIndicator(
               onRefresh: _refresh,
@@ -256,7 +258,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: FloatingNavigationBar(currentIndex: 2),
+                    child: FloatingNavigationBar(currentIndex: -1),
                   ),
                 ],
               ),
@@ -274,9 +276,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
                 onPressed: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const ResourceFormPage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const ResourceFormPage()),
                   );
                   // setelah balik dari form, refresh list
                   _refresh();
@@ -361,8 +361,9 @@ class _ResourcesPageState extends State<ResourcesPage> {
 
   // MODE 2: Vertical List After Filtering
   Widget _buildFilteredVerticalView(List<ResourcesEntry> all) {
-    final filtered =
-        all.where((r) => r.level.toLowerCase() == _selectedLevel).toList();
+    final filtered = all
+        .where((r) => r.level.toLowerCase() == _selectedLevel)
+        .toList();
 
     final primaryColor = _primaryColorForLevel(_selectedLevel);
     final bgColor = _backgroundColorForLevel(_selectedLevel);
@@ -481,29 +482,31 @@ class _ResourcesPageState extends State<ResourcesPage> {
     final url = _joinBase('resources/api/delete/${resource.id}/');
     try {
       final response = await request.postJson(url, jsonEncode({}));
-      final success = response is Map<String, dynamic> &&
+      final success =
+          response is Map<String, dynamic> &&
           (response['status'] == 'deleted' || response['status'] == 'success');
 
       if (!mounted) return;
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Resource deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Resource deleted')));
         _refresh();
       } else {
-        final reason = response is Map<String, dynamic> && response['status'] != null
+        final reason =
+            response is Map<String, dynamic> && response['status'] != null
             ? response['status'].toString()
             : 'Unknown error';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $reason')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Delete failed: $reason')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
     }
   }
 
@@ -579,7 +582,7 @@ class _ResourcesSection extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: resources.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              separatorBuilder: (context, index) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
                 final r = resources[index];
                 return SizedBox(
